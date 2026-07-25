@@ -432,7 +432,7 @@ class PipelineMonitorTests(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(calls[0][1]["env"]["LLM_FIRST_TURN_MODE"], "compatible")
-        self.assertEqual(calls[0][1]["env"]["LLM_FIRST_TURN_COMPAT_LISTEN_SEC"], "20")
+        self.assertEqual(calls[0][1]["env"]["LLM_FIRST_TURN_COMPAT_LISTEN_SEC"], "30")
 
     def test_run_pipeline_command_reports_start_timeout(self):
         def fake_runner(command, **kwargs):

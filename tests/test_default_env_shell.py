@@ -36,6 +36,22 @@ class DefaultEnvShellTests(unittest.TestCase):
         self.assertIn("--setenv=LLM_FIRST_TURN_MODE=", systemd_env)
         self.assertIn("--setenv=LLM_FIRST_TURN_COMPAT_LISTEN_SEC=", systemd_env)
 
+    def test_compatible_first_turn_window_defaults_to_thirty_seconds(self):
+        result = subprocess.run(
+            [
+                "bash",
+                "-lc",
+                "source config/default.env; printf '%s' \"$LLM_FIRST_TURN_COMPAT_LISTEN_SEC\"",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "30")
+
 
 if __name__ == "__main__":
     unittest.main()

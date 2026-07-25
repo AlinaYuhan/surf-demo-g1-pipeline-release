@@ -52,6 +52,7 @@ class RecordingEndpointController:
         self._lock = threading.Lock()
         self._mode = BASIC_MODE
         self._smart_pause_grace_sec = float(smart_pause_grace_sec)
+        self._recording_silence_grace_sec: float | None = None
         self._pending_silence = False
         self._pending_deadline = 0.0
 
@@ -60,9 +61,14 @@ class RecordingEndpointController:
         with self._lock:
             return self._mode
 
-    def begin(self, mode: str) -> None:
+    def begin(self, mode: str, *, silence_grace_sec: float | None = None) -> None:
+        if silence_grace_sec is not None and silence_grace_sec < 0:
+            raise ValueError("silence_grace_sec must be non-negative")
         with self._lock:
             self._mode = normalize_mode(mode)
+            self._recording_silence_grace_sec = (
+                None if silence_grace_sec is None else float(silence_grace_sec)
+            )
             self._pending_silence = False
             self._pending_deadline = 0.0
 
@@ -72,12 +78,15 @@ class RecordingEndpointController:
                 self._pending_silence = False
                 self._pending_deadline = 0.0
                 return False
-            if self._mode == SMART_MODE:
+            silence_grace_sec = self._recording_silence_grace_sec
+            if silence_grace_sec is None and self._mode == SMART_MODE:
+                silence_grace_sec = self._smart_pause_grace_sec
+            if silence_grace_sec is not None:
                 if not self._pending_silence:
                     self._pending_silence = True
                     self._pending_deadline = max(
                         holdoff_until,
-                        now + self._smart_pause_grace_sec,
+                        now + silence_grace_sec,
                     )
                 return False
             if now > holdoff_until:
@@ -88,7 +97,7 @@ class RecordingEndpointController:
 
     def poll(self, *, now: float, holdoff_until: float) -> bool:
         with self._lock:
-            if self._mode != SMART_MODE or not self._pending_silence:
+            if not self._pending_silence:
                 return False
             if now < max(holdoff_until, self._pending_deadline):
                 return False

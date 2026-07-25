@@ -22,6 +22,7 @@ from wake_word.wake_word_detector import WakeWordDetector
 from wake_word.wakeup_dispatcher import WakeupDispatcher
 
 from pipeline_log.pipeline_logger import PipelineLogger, SessionLog
+from first_turn.mode_control import COMPATIBLE_MODE, FirstTurnModeStore
 from turn_detection.mode_control import RecordingEndpointController, TurnModeStore
 from turn_detection.runtime_shadow import TurnShadowRuntime
 
@@ -82,6 +83,11 @@ class SurfVoiceRuntime:
         self._recording_lock = threading.Lock()
         runtime_dir = Path(os.environ.get("LLM_RUNTIME_DIR", "runtime"))
         self._turn_mode_store = TurnModeStore(runtime_dir / "turn_mode.json")
+        self._first_turn_mode_store = FirstTurnModeStore(runtime_dir / "first_turn_mode.json")
+        self._first_turn_compat_silence_sec = _env_float(
+            "VOICE_FIRST_TURN_COMPAT_SILENCE_SEC",
+            3.0,
+        )
         self._endpoint_controller = RecordingEndpointController(
             smart_pause_grace_sec=_env_float(
                 "VOICE_PAUSE_ENDPOINT_GRACE_SEC",
@@ -182,7 +188,21 @@ class SurfVoiceRuntime:
         )
         bus_snapshot = self._bus.get_buffer()
         asr_preroll = self._asr_preroll(bus_snapshot)
-        self._endpoint_controller.begin(self._turn_mode_store.read())
+        first_turn_mode = self._first_turn_mode_store.read()
+        first_turn_silence_grace_sec = (
+            self._first_turn_compat_silence_sec
+            if first_turn_mode == COMPATIBLE_MODE
+            else None
+        )
+        self._endpoint_controller.begin(
+            self._turn_mode_store.read(),
+            silence_grace_sec=first_turn_silence_grace_sec,
+        )
+        if first_turn_silence_grace_sec is not None:
+            logger.info(
+                "compatible first-turn silence grace armed: %.2fs",
+                first_turn_silence_grace_sec,
+            )
         with self._recording_lock:
             self._asr_audio_frames = asr_preroll
             self._recording = True

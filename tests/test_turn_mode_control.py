@@ -68,6 +68,29 @@ class RecordingEndpointControllerTests(unittest.TestCase):
         controller.begin(BASIC_MODE)
         self.assertTrue(controller.on_vad(False, now=2.1, holdoff_until=2.0))
 
+    def test_explicit_first_turn_grace_defers_basic_mode_endpoint(self) -> None:
+        controller = RecordingEndpointController(smart_pause_grace_sec=0.8)
+        controller.begin(BASIC_MODE, silence_grace_sec=3.0)
+        self.assertFalse(controller.on_vad(False, now=2.1, holdoff_until=2.0))
+        self.assertFalse(controller.poll(now=5.09, holdoff_until=2.0))
+        self.assertTrue(controller.poll(now=5.11, holdoff_until=2.0))
+
+    def test_explicit_first_turn_grace_restarts_after_speech_resumes(self) -> None:
+        controller = RecordingEndpointController(smart_pause_grace_sec=0.8)
+        controller.begin(BASIC_MODE, silence_grace_sec=3.0)
+        controller.on_vad(False, now=2.1, holdoff_until=2.0)
+        controller.on_vad(True, now=3.0, holdoff_until=2.0)
+        self.assertFalse(controller.poll(now=5.2, holdoff_until=2.0))
+        controller.on_vad(False, now=5.3, holdoff_until=2.0)
+        self.assertFalse(controller.poll(now=8.29, holdoff_until=2.0))
+        self.assertTrue(controller.poll(now=8.31, holdoff_until=2.0))
+
+    def test_begin_without_override_restores_basic_mode_endpoint(self) -> None:
+        controller = RecordingEndpointController(smart_pause_grace_sec=0.8)
+        controller.begin(BASIC_MODE, silence_grace_sec=3.0)
+        controller.begin(BASIC_MODE)
+        self.assertTrue(controller.on_vad(False, now=2.1, holdoff_until=2.0))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -76,7 +76,7 @@ def _env_list_compat(name: str, legacy_name: str, default: tuple[str, ...]) -> t
 def _first_turn_wake_listen_sec() -> float:
     mode = _env("LLM_FIRST_TURN_MODE", "standard").strip().lower()
     if mode == "compatible":
-        return _env_float("LLM_FIRST_TURN_COMPAT_LISTEN_SEC", 20.0)
+        return _env_float("LLM_FIRST_TURN_COMPAT_LISTEN_SEC", 30.0)
     return _env_float_compat("SURF_LLM_WAKE_LISTEN_SEC", "SURF_QWEN_WAKE_LISTEN_SEC", 8.0)
 
 
