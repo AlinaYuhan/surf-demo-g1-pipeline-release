@@ -86,7 +86,7 @@ class SurfVoiceRuntime:
         self._first_turn_mode_store = FirstTurnModeStore(runtime_dir / "first_turn_mode.json")
         self._first_turn_compat_silence_sec = _env_float(
             "VOICE_FIRST_TURN_COMPAT_SILENCE_SEC",
-            3.0,
+            2.0,
         )
         self._endpoint_controller = RecordingEndpointController(
             smart_pause_grace_sec=_env_float(
