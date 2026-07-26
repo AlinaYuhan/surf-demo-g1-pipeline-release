@@ -21,8 +21,6 @@ ACTION_NAME_TO_ID = {
     "clap": 17,
     "high five": 18,
     "hug": 19,
-    "heart": 20,
-    "right heart": 21,
     "reject": 22,
     "right hand up": 23,
     "x-ray": 24,

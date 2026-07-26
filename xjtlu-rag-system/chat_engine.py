@@ -32,8 +32,6 @@ ACTIONS: tuple[ArmAction, ...] = (
     ArmAction("鼓掌", "clap", 17),
     ArmAction("击掌", "high five", 18),
     ArmAction("拥抱", "hug", 19),
-    ArmAction("比心", "heart", 20),
-    ArmAction("右手比心", "right heart", 21),
     ArmAction("拒绝摆手", "reject", 22),
     ArmAction("举右手", "right hand up", 23),
     ArmAction("x-ray", "x-ray", 24),
