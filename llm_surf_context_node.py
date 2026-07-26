@@ -1391,7 +1391,7 @@ class LlmSurfContextNode(Node):
         if command_name == "dance":
             ack_text = "好的，我来给大家表演一段。请管理员确认。"
             try:
-                tts_ok = self._prepare_tts_wav("reply", ack_text, session_id=session_id)
+                tts_ok = self._prepare_tts_wav("system_ack", ack_text, session_id=session_id)
             except Exception as exc:
                 self.get_logger().warn(f"Dance ack TTS failed: {exc}")
                 tts_ok = False
