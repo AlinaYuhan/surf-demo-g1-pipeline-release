@@ -1293,6 +1293,7 @@ class LlmSurfContextNode(Node):
             ("lie_down", ("躺下", "趴下", "倒下")),
             ("stand_up", ("站起来", "起立", "站好")),
             ("sing", ("唱歌", "唱首歌", "唱一首歌", "给我唱歌")),
+            ("dance", ("跳舞", "舞蹈", "跳个舞", "跳支舞")),
         )
         for command, keywords in command_keywords:
             for keyword in keywords:
@@ -1386,6 +1387,21 @@ class LlmSurfContextNode(Node):
                 f"conversation_session_id established after robot skill command session_id={session_id}"
             )
         self._set_wake_light_blue()
+
+        if command_name == "dance":
+            ack_text = "好的，我来给大家表演一段。请管理员确认。"
+            try:
+                tts_ok = self._prepare_tts_wav("reply", ack_text, session_id=session_id)
+            except Exception as exc:
+                self.get_logger().warn(f"Dance ack TTS failed: {exc}")
+                tts_ok = False
+            self._update_status(
+                last_robot_skill_command=command_name,
+                last_robot_skill_text=text,
+                last_robot_skill_ok=tts_ok,
+                last_robot_skill_time=time.time(),
+            )
+            return
 
         if command_name == "sing":
             song_ok = self._queue_robot_skill_song(session_id)
