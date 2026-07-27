@@ -453,6 +453,15 @@ class LlmSurfContextNode(Node):
                 return
 
         llm_text = self._build_llm_text(user_text)
+        _dance_keywords = ("跳舞", "舞蹈", "跳个舞", "跳支舞")
+        _is_dance_intent = any(kw in user_text for kw in _dance_keywords)
+        if _is_dance_intent:
+            llm_text = (
+                "系统指令：如果用户让你跳舞或表演，请只回复"
+                "\"好的，我来给大家表演一段。请管理员确认。\""
+                "，不要加任何其他文字。如果用户在问关于舞蹈的问题而不是让你跳，请正常回答。\n"
+                + llm_text
+            )
         if followup_turn and self._conversation_session_id:
             request_session_id = self._conversation_session_id
         else:
@@ -509,6 +518,12 @@ class LlmSurfContextNode(Node):
             self._discard_interrupted_turn(request_session_id, "after_llm")
             return
         reply = str(llm_response.get("reply", "")).strip()
+        _is_dance_reply = (
+            _is_dance_intent
+            and ("请管理员确认" in reply or "表演一段" in reply)
+        )
+        if _is_dance_reply:
+            reply = "好的，我来给大家表演一段。请管理员确认。"
         action_payload = llm_response.get("action", {})
         if not reply:
             error = str(llm_response.get("error", "")).strip() or "empty_reply"
@@ -544,8 +559,9 @@ class LlmSurfContextNode(Node):
         tts_started_at = time.time()
         try:
             reply_tts_text = self._build_reply_tts_text(reply, user_text=user_text)
+            tts_kind = "system_ack" if _is_dance_reply else "reply"
             tts_ok = self._prepare_tts_wav(
-                "reply",
+                tts_kind,
                 reply_tts_text,
                 session_id=request_session_id,
                 generation=turn_generation,
@@ -1293,7 +1309,6 @@ class LlmSurfContextNode(Node):
             ("lie_down", ("躺下", "趴下", "倒下")),
             ("stand_up", ("站起来", "起立", "站好")),
             ("sing", ("唱歌", "唱首歌", "唱一首歌", "给我唱歌")),
-            ("dance", ("跳舞", "舞蹈", "跳个舞", "跳支舞")),
         )
         for command, keywords in command_keywords:
             for keyword in keywords:
@@ -1387,21 +1402,6 @@ class LlmSurfContextNode(Node):
                 f"conversation_session_id established after robot skill command session_id={session_id}"
             )
         self._set_wake_light_blue()
-
-        if command_name == "dance":
-            ack_text = "好的，我来给大家表演一段。请管理员确认。"
-            try:
-                tts_ok = self._prepare_tts_wav("system_ack", ack_text, session_id=session_id)
-            except Exception as exc:
-                self.get_logger().warn(f"Dance ack TTS failed: {exc}")
-                tts_ok = False
-            self._update_status(
-                last_robot_skill_command=command_name,
-                last_robot_skill_text=text,
-                last_robot_skill_ok=tts_ok,
-                last_robot_skill_time=time.time(),
-            )
-            return
 
         if command_name == "sing":
             song_ok = self._queue_robot_skill_song(session_id)
