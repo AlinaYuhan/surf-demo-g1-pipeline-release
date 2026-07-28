@@ -156,6 +156,53 @@ class InterruptControl:
             self._atomic_write(self.session_command_path, session_payload)
         return session_payload
 
+    def request_silent_end(
+        self,
+        session_id: str = "",
+        command: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Close session silently — no TTS, no terminate ack."""
+        payload = command or self.begin(session_id=session_id)
+        with _COMMAND_LOCK:
+            generation = int(payload.get("generation", -1))
+            if generation != self.current_generation():
+                raise RuntimeError(
+                    f"stale interrupt generation={generation} current={self.current_generation()}"
+                )
+            session_payload = {
+                "command": "silent_end",
+                "request_id": str(payload.get("request_id", uuid.uuid4().hex)),
+                "generation": generation,
+                "session_id": str(session_id or payload.get("session_id", "")),
+                "updated_at": time.time(),
+            }
+            self._atomic_write(self.session_command_path, session_payload)
+        return session_payload
+
+    def request_simulate_wake(
+        self,
+        session_id: str = "",
+        command: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Simulate wake word to re-activate listening."""
+        payload = command or self.begin(session_id=session_id)
+        with _COMMAND_LOCK:
+            generation = int(payload.get("generation", -1))
+            if generation != self.current_generation():
+                raise RuntimeError(
+                    f"stale interrupt generation={generation} current={self.current_generation()}"
+                )
+            session_payload = {
+                "command": "simulate_wake",
+                "request_id": str(payload.get("request_id", uuid.uuid4().hex)),
+                "generation": generation,
+                "session_id": str(session_id or payload.get("session_id", "")),
+                "wake_word": "你好小浦",
+                "updated_at": time.time(),
+            }
+            self._atomic_write(self.session_command_path, session_payload)
+        return session_payload
+
     @staticmethod
     def _read_json(path: Path) -> dict[str, Any]:
         try:

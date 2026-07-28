@@ -998,6 +998,55 @@ def run_pipeline_end_session(
     }
 
 
+def run_pipeline_silent_end(
+    logs_dir: Path = DEFAULT_LOGS_DIR,
+    pipeline_running_checker: Any = _pipeline_services_running,
+    interrupt_control: InterruptControl | None = None,
+) -> dict[str, Any]:
+    if not pipeline_running_checker():
+        return {"ok": False, "partial": False, "error": "pipeline_not_running"}
+    latest_log = find_latest_pipeline_log(logs_dir)
+    session_id = latest_log.parent.name if latest_log is not None else ""
+    control = interrupt_control or InterruptControl(PROJECT_ROOT / "runtime")
+    command = control.begin(session_id=session_id)
+    generation = int(command["generation"])
+    try:
+        command = control.request_silent_end(session_id=session_id, command=command)
+    except Exception as exc:
+        return {"ok": False, "partial": False, "error": str(exc)}
+    return {
+        "ok": True, "partial": False,
+        "message": "已静默关闭会话",
+        "session_id": session_id,
+        "request_id": command["request_id"],
+        "generation": generation,
+    }
+
+
+def run_pipeline_simulate_wake(
+    logs_dir: Path = DEFAULT_LOGS_DIR,
+    pipeline_running_checker: Any = _pipeline_services_running,
+    interrupt_control: InterruptControl | None = None,
+) -> dict[str, Any]:
+    if not pipeline_running_checker():
+        return {"ok": False, "partial": False, "error": "pipeline_not_running"}
+    latest_log = find_latest_pipeline_log(logs_dir)
+    session_id = latest_log.parent.name if latest_log is not None else ""
+    control = interrupt_control or InterruptControl(PROJECT_ROOT / "runtime")
+    command = control.begin(session_id=session_id)
+    try:
+        command = control.request_simulate_wake(session_id=session_id, command=command)
+    except Exception as exc:
+        return {"ok": False, "partial": False, "error": str(exc)}
+    return {
+        "ok": True, "partial": False,
+        "message": "已触发模拟唤醒",
+        "session_id": session_id,
+        "request_id": command["request_id"],
+        "generation": int(command["generation"]),
+    }
+
+
 def _json_response(handler: BaseHTTPRequestHandler, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -1055,6 +1104,10 @@ def make_handler(logs_dir: Path) -> type[BaseHTTPRequestHandler]:
                 self._run_pipeline_interrupt()
             elif parsed.path == "/api/pipeline/end-session":
                 self._run_pipeline_end_session()
+            elif parsed.path == "/api/pipeline/silent-end":
+                self._run_pipeline_silent_end()
+            elif parsed.path == "/api/pipeline/simulate-wake":
+                self._run_pipeline_simulate_wake()
             elif parsed.path == "/api/turn-mode":
                 self._update_turn_mode()
             elif parsed.path == "/api/first-turn-mode":
@@ -1226,6 +1279,24 @@ def make_handler(logs_dir: Path) -> type[BaseHTTPRequestHandler]:
                     {"ok": False, "partial": False, "error": str(exc)},
                     HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
+
+        def _run_pipeline_silent_end(self) -> None:
+            try:
+                payload = run_pipeline_silent_end(logs_dir=logs_dir)
+                status = HTTPStatus.OK if payload.get("ok") else HTTPStatus.INTERNAL_SERVER_ERROR
+                _json_response(self, payload, status)
+            except Exception as exc:
+                _json_response(
+                    self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        def _run_pipeline_simulate_wake(self) -> None:
+            try:
+                payload = run_pipeline_simulate_wake(logs_dir=logs_dir)
+                status = HTTPStatus.OK if payload.get("ok") else HTTPStatus.INTERNAL_SERVER_ERROR
+                _json_response(self, payload, status)
+            except Exception as exc:
+                _json_response(
+                    self, {"ok": False, "error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
         def _serve_sse(self) -> None:
             self.send_response(HTTPStatus.OK)

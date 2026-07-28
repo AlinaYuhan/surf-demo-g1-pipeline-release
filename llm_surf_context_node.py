@@ -198,6 +198,64 @@ class LlmSurfContextNode(Node):
         if not request_id or request_id == self._last_session_command_request_id:
             return
         self._last_session_command_request_id = request_id
+        if command.get("command") == "silent_end":
+            session_id = str(command.get("session_id", "")).strip()
+            request_session_id = (
+                self._conversation_session_id
+                or self._session_id
+                or session_id
+                or self._fallback_session_id()
+            )
+            self._session_record(
+                "manual_silent_end_received",
+                request_id=request_id,
+                generation=command.get("generation", 0),
+                session_id=request_session_id,
+            )
+            with self._wake_state_lock:
+                self._conversation_session_id = ""
+                self._followup_until = 0.0
+                self._followup_generation += 1
+                self.awaiting_command_after_wake = False
+                self._wake_listen_until = 0.0
+                self._wake_command_started = False
+            self._update_status(
+                followup_active=False,
+                followup_session_id="",
+                wake_listen_active=False,
+                last_followup_closed_reason="manual_silent_end",
+            )
+            self._write_followup_control_close(request_session_id, "manual_silent_end")
+            self._set_wake_light_blue()
+            return
+
+        if command.get("command") == "simulate_wake":
+            wake_word = str(command.get("wake_word", "你好小浦"))
+            session_id = str(command.get("session_id", "")).strip()
+            request_session_id = (
+                self._conversation_session_id
+                or self._session_id
+                or session_id
+                or self._fallback_session_id()
+            )
+            self._session_id = request_session_id
+            self._session_record(
+                "manual_wake_simulated",
+                request_id=request_id,
+                wake_word=wake_word,
+                session_id=request_session_id,
+            )
+            self.surf_context.wake_word = wake_word
+            self.surf_context.wake_time = time.time()
+            self._attach_session(request_session_id)
+            self._update_status(
+                last_wake=wake_word,
+                last_wake_time=self.surf_context.wake_time,
+            )
+            self._open_wake_listen_window()
+            self._maybe_play_wake_ack(wake_word)
+            return
+
         if command.get("command") != "end_session":
             return
 
