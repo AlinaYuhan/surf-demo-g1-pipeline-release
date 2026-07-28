@@ -228,8 +228,8 @@ function setPipelineBusy(isBusy) {
   stopPipelineButton.disabled = isBusy;
   interruptPipelineButton.disabled = isBusy || currentPipelineState !== "running";
   endSessionButton.disabled = isBusy || currentPipelineState !== "running";
-  silentEndButton.disabled = isBusy || currentPipelineState !== "running";
-  simulateWakeButton.disabled = isBusy || currentPipelineState !== "running";
+  silentEndButton.disabled = isBusy;
+  simulateWakeButton.disabled = isBusy;
   updateTurnModeControls();
   updateFirstTurnModeControls();
 }
@@ -265,8 +265,8 @@ function updatePipelineStatus(payload) {
   pipelineStatus.className = `status ${state === "running" ? "ok" : state === "partial" ? "partial" : state === "stopped" ? "" : "error"}`;
   interruptPipelineButton.disabled = state !== "running";
   endSessionButton.disabled = state !== "running";
-  silentEndButton.disabled = state !== "running";
-  simulateWakeButton.disabled = state !== "running";
+  silentEndButton.disabled = false;
+  simulateWakeButton.disabled = false;
   if (pipelineBusy) interruptPipelineButton.disabled = true;
   if (pipelineBusy) endSessionButton.disabled = true;
   if (pipelineBusy) silentEndButton.disabled = true;
