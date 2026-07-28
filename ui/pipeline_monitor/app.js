@@ -12,6 +12,8 @@ const startPipelineButton = document.querySelector("#startPipelineButton");
 const stopPipelineButton = document.querySelector("#stopPipelineButton");
 const interruptPipelineButton = document.querySelector("#interruptPipelineButton");
 const endSessionButton = document.querySelector("#endSessionButton");
+const silentEndButton = document.querySelector("#silentEndButton");
+const simulateWakeButton = document.querySelector("#simulateWakeButton");
 const readinessList = document.querySelector("#readinessList");
 const turnModeCurrent = document.querySelector("#turnModeCurrent");
 const turnModeBasic = document.querySelector("#turnModeBasic");
@@ -226,6 +228,8 @@ function setPipelineBusy(isBusy) {
   stopPipelineButton.disabled = isBusy;
   interruptPipelineButton.disabled = isBusy || currentPipelineState !== "running";
   endSessionButton.disabled = isBusy || currentPipelineState !== "running";
+  silentEndButton.disabled = isBusy || currentPipelineState !== "running";
+  simulateWakeButton.disabled = isBusy || currentPipelineState !== "running";
   updateTurnModeControls();
   updateFirstTurnModeControls();
 }
@@ -261,8 +265,12 @@ function updatePipelineStatus(payload) {
   pipelineStatus.className = `status ${state === "running" ? "ok" : state === "partial" ? "partial" : state === "stopped" ? "" : "error"}`;
   interruptPipelineButton.disabled = state !== "running";
   endSessionButton.disabled = state !== "running";
+  silentEndButton.disabled = state !== "running";
+  simulateWakeButton.disabled = state !== "running";
   if (pipelineBusy) interruptPipelineButton.disabled = true;
   if (pipelineBusy) endSessionButton.disabled = true;
+  if (pipelineBusy) silentEndButton.disabled = true;
+  if (pipelineBusy) simulateWakeButton.disabled = true;
   updateTurnModeControls();
   updateFirstTurnModeControls();
   renderReadiness(payload || {});
@@ -493,6 +501,43 @@ async function runPipelineInterrupt() {
   }
 }
 
+async function runPipelineSilentEnd() {
+  setPipelineBusy(true);
+  setSessionStatus("静默关闭中", "partial");
+  try {
+    const response = await fetch("/api/pipeline/silent-end", { method: "POST" });
+    const payload = await response.json();
+    setSessionStatus(payload.ok ? "已关闭" : "关闭失败", payload.ok ? "" : "partial");
+    await loadSnapshot();
+  } catch (error) {
+    addEvent({ kind: "system", title: "ERROR", message: `静默关闭失败：${String(error)}` });
+  } finally {
+    await refreshPipelineStatus();
+    setPipelineBusy(false);
+  }
+}
+
+async function runPipelineSimulateWake() {
+  setPipelineBusy(true);
+  setSessionStatus("模拟唤醒中", "partial");
+  try {
+    const response = await fetch("/api/pipeline/simulate-wake", { method: "POST" });
+    const payload = await response.json();
+    if (payload.ok) {
+      setSessionStatus("等待问题", "ok");
+      addEvent({ kind: "state", title: "WAKE", message: "已手动触发唤醒" });
+    } else {
+      setSessionStatus("唤醒失败", "partial");
+    }
+    await loadSnapshot();
+  } catch (error) {
+    addEvent({ kind: "system", title: "ERROR", message: `模拟唤醒失败：${String(error)}` });
+  } finally {
+    await refreshPipelineStatus();
+    setPipelineBusy(false);
+  }
+}
+
 async function runPipelineEndSession() {
   setPipelineBusy(true);
   setSessionStatus("正在关闭", "partial");
@@ -624,6 +669,8 @@ startPipelineButton.addEventListener("click", () => runPipelineAction("start"));
 stopPipelineButton.addEventListener("click", () => runPipelineAction("stop"));
 interruptPipelineButton.addEventListener("click", runPipelineInterrupt);
 endSessionButton.addEventListener("click", runPipelineEndSession);
+silentEndButton.addEventListener("click", runPipelineSilentEnd);
+simulateWakeButton.addEventListener("click", runPipelineSimulateWake);
 turnModeBasic.addEventListener("click", () => setTurnMode("basic"));
 turnModeSmart.addEventListener("click", () => setTurnMode("smart"));
 firstTurnModeStandard.addEventListener("click", () => setFirstTurnMode("standard"));

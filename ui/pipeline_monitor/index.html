@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>G1 Pipeline Monitor</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260725-first-turn-mode" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260728-session-buttons" />
   </head>
   <body>
     <main class="app">
@@ -33,6 +33,12 @@
           </button>
           <button id="endSessionButton" class="session-command" type="button" disabled>
             关闭会话
+          </button>
+          <button id="silentEndButton" class="session-command silent" type="button" disabled>
+            静默关闭
+          </button>
+          <button id="simulateWakeButton" class="session-command wake" type="button" disabled>
+            模拟唤醒
           </button>
           <div id="connection" class="status">Connecting</div>
         </div>
@@ -80,6 +86,6 @@
       </div>
     </main>
 
-    <script src="/static/app.js?v=20260725-first-turn-mode"></script>
+    <script src="/static/app.js?v=20260728-session-buttons"></script>
   </body>
 </html>
