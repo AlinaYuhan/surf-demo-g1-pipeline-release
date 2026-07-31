@@ -101,7 +101,7 @@ h1 {
 
 .control-deck {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: stretch;
   gap: 8px;
   width: 100%;
