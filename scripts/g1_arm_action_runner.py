@@ -33,7 +33,7 @@ ACTION_ID_TO_NAME = {action_id: name for name, action_id in ACTION_NAME_TO_ID.it
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run one official Unitree G1 arm action by action id.")
-    parser.add_argument("--network", required=True, help="DDS network interface, e.g. eth1.")
+    parser.add_argument("--network", default=os.environ.get("UNITREE_NETWORK_INTERFACE", ""), help="DDS network interface for direct mode.")
     parser.add_argument("--id", required=True, type=int, help="Official G1 arm action id.")
     parser.add_argument("--timeout", default=10.0, type=float, help="Unitree RPC timeout in seconds.")
     parser.add_argument("--generation", default=None, type=int, help="Interrupt generation for relay ordering.")
@@ -62,6 +62,10 @@ def main() -> int:
 
     if os.environ.get("UNITREE_BACKEND", "direct").strip().lower() == "relay":
         return _run_via_relay(args, action_name)
+
+    if not args.network:
+        print("g1_arm_action failed: UNITREE_NETWORK_INTERFACE or --network is required for direct mode", file=sys.stderr)
+        return 2
 
     if str(SDK_PATH) not in sys.path:
         sys.path.insert(0, str(SDK_PATH))
@@ -97,7 +101,10 @@ def _run_via_relay(args: argparse.Namespace, action_name: str) -> int:
 
     from robot_relay.robot_relay_client import RobotRelayClient, RobotRelayError
 
-    host = os.environ.get("ROBOT_RELAY_HOST", "192.168.123.164")
+    host = os.environ.get("ROBOT_RELAY_HOST", "").strip()
+    if not host:
+        print("g1_arm_action relay failed: ROBOT_RELAY_HOST is required", file=sys.stderr, flush=True)
+        return 2
     port = int(os.environ.get("ROBOT_RELAY_PORT", "9999"))
     timeout = float(os.environ.get("ROBOT_RELAY_TIMEOUT_SEC", str(args.timeout)))
     client = RobotRelayClient(host, port, timeout_sec=timeout)

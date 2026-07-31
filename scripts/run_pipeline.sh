@@ -182,6 +182,20 @@ if [[ "${MODE}" != "listen" && "${MODE}" != "wake" ]]; then
   exit 1
 fi
 
+if [[ "${VOICE_AUDIO_SOURCE:-robot}" == "robot" && -z "${VOICE_ROBOT_MIC_IF:-}" ]]; then
+  echo "VOICE_ROBOT_MIC_IF is required when VOICE_AUDIO_SOURCE=robot; set it in config/local.env" >&2
+  exit 2
+fi
+if [[ "${UNITREE_ENABLE:-1}" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
+  if [[ "${UNITREE_BACKEND:-relay}" == "relay" && -z "${ROBOT_RELAY_HOST:-}" ]]; then
+    echo "ROBOT_RELAY_HOST is required when UNITREE_BACKEND=relay; set it in config/local.env" >&2
+    exit 2
+  elif [[ "${UNITREE_BACKEND:-relay}" != "relay" && -z "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
+    echo "UNITREE_NETWORK_INTERFACE is required for direct Unitree DDS; set it in config/local.env" >&2
+    exit 2
+  fi
+fi
+
 test -f "${WORKSPACE_ROOT}/surf_voice_runtime.py"
 test -f "${WORKSPACE_ROOT}/surf_ros_bridge.py"
 test -d "${LLM_ROOT}/third_party/unitree_sdk2_python"
@@ -221,7 +235,7 @@ pkill -f 'asr_dds_to_ros_bridge.py --network' >/dev/null 2>&1 || true
 
 VOICE_SYSTEMD_ENV=(
   --setenv=VOICE_AUDIO_SOURCE="${VOICE_AUDIO_SOURCE:-robot}"
-  --setenv=VOICE_ROBOT_MIC_IF="${VOICE_ROBOT_MIC_IF:-192.168.123.222}"
+  --setenv=VOICE_ROBOT_MIC_IF="${VOICE_ROBOT_MIC_IF:-}"
   --setenv=VOICE_ROBOT_MIC_PORT="${VOICE_ROBOT_MIC_PORT:-5555}"
   --setenv=LLM_FOLLOWUP_ENABLE="${LLM_FOLLOWUP_ENABLE}"
   --setenv=LLM_FOLLOWUP_TIMEOUT_SEC="${LLM_FOLLOWUP_TIMEOUT_SEC}"

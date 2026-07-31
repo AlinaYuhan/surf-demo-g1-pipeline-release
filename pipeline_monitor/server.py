@@ -36,11 +36,11 @@ PIPELINE_COMPONENT_LABELS = {
 PIPELINE_ENV_DEFAULTS = {
     "UNITREE_ENABLE": "1",
     "UNITREE_BACKEND": "relay",
-    "ROBOT_RELAY_HOST": "192.168.123.164",
+    "ROBOT_RELAY_HOST": "",
     "ROBOT_RELAY_PORT": "9999",
     "ROBOT_RELAY_TIMEOUT_SEC": "15",
     "VOICE_AUDIO_SOURCE": "robot",
-    "VOICE_ROBOT_MIC_IF": "192.168.123.225",
+    "VOICE_ROBOT_MIC_IF": "",
     "VOICE_ROBOT_MIC_PORT": "5556",
     "ROBOT_MIC_PROCESSING_MODE": "beamformer",
     "ROBOT_MIC_SOURCE_CHANNELS": "8",
@@ -179,6 +179,18 @@ def _robot_ssh_command(remote_command: str) -> list[str]:
         f"{user}@{host}",
         remote_command,
     ]
+
+
+def _configuration_not_ready(*names: str) -> dict[str, Any]:
+    missing = [name for name in names if not (os.environ.get(name) or PIPELINE_ENV_DEFAULTS.get(name, ""))]
+    detail = f"缺少必需配置：{', '.join(missing)}；请在 config/local.env 中设置"
+    return {
+        "ready": False,
+        "state": "configuration_not_ready",
+        "endpoint": "",
+        "error": detail,
+        "hint": detail,
+    }
 
 
 def _is_session_log(path: Path) -> bool:
@@ -410,6 +422,8 @@ def robot_relay_status(
     timeout_sec: float = 1.5,
 ) -> dict[str, Any]:
     host = host or os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"]
+    if not host:
+        return _configuration_not_ready("ROBOT_RELAY_HOST")
     port = int(port or os.environ.get("ROBOT_RELAY_PORT") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_PORT"])
     endpoint = f"{host}:{port}"
     hint = f"ssh unitree@{host} 后运行：cd ~/surf_robot_relay && ./scripts/run_jetson_robot_relay.sh"
@@ -442,6 +456,9 @@ def robot_mic_status(command_runner: Any = subprocess.run) -> dict[str, Any]:
     host = os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"]
     destination = os.environ.get("VOICE_ROBOT_MIC_IF") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_IF"]
     port = os.environ.get("VOICE_ROBOT_MIC_PORT") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_PORT"]
+    missing = tuple(name for name, value in (("ROBOT_RELAY_HOST", host), ("VOICE_ROBOT_MIC_IF", destination)) if not value)
+    if missing:
+        return _configuration_not_ready(*missing)
     started_at = time.time()
     try:
         settings = _robot_mic_settings()
@@ -513,6 +530,17 @@ def ensure_robot_runtime(
 ) -> dict[str, Any]:
     destination = os.environ.get("VOICE_ROBOT_MIC_IF") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_IF"]
     port = os.environ.get("VOICE_ROBOT_MIC_PORT") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_PORT"]
+    missing = tuple(
+        name
+        for name, value in (
+            ("ROBOT_RELAY_HOST", os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"]),
+            ("VOICE_ROBOT_MIC_IF", destination),
+        )
+        if not value
+    )
+    if missing:
+        status = _configuration_not_ready(*missing)
+        return {"ok": False, **status}
     try:
         settings = _robot_mic_settings()
     except ValueError as exc:
@@ -756,24 +784,41 @@ def run_pipeline_command(
     if action not in {"start", "stop"}:
         raise ValueError(f"Unsupported pipeline action: {action}")
 
-    env = os.environ.copy()
-    env.update(PIPELINE_ENV_DEFAULTS)
+    env = {**PIPELINE_ENV_DEFAULTS, **os.environ}
     runtime_root = first_turn_runtime_dir or (PROJECT_ROOT / "runtime")
     env["LLM_FIRST_TURN_MODE"] = FirstTurnModeStore(
         runtime_root / FIRST_TURN_MODE_FILENAME
     ).read()
     if action == "start":
-        robot_runtime = robot_runtime_starter()
-        if not robot_runtime.get("ok"):
-            return {
-                "ok": False,
-                "action": action,
-                "returncode": -1,
-                "stdout": "",
-                "stderr": str(robot_runtime.get("error", "robot runtime unavailable")),
-                "error": str(robot_runtime.get("error", "robot runtime unavailable")),
-                "robot_runtime": robot_runtime,
-            }
+        required: list[str] = []
+        if env.get("UNITREE_ENABLE", "1") not in {"0", "false", "False", "no", "off"}:
+            if env.get("UNITREE_BACKEND", "relay") == "relay":
+                if not env.get("ROBOT_RELAY_HOST"):
+                    required.append("ROBOT_RELAY_HOST")
+            elif not env.get("UNITREE_NETWORK_INTERFACE"):
+                required.append("UNITREE_NETWORK_INTERFACE")
+        if env.get("VOICE_AUDIO_SOURCE", "robot") == "robot" and not env.get("VOICE_ROBOT_MIC_IF"):
+            required.append("VOICE_ROBOT_MIC_IF")
+        if required:
+            detail = f"缺少必需配置：{', '.join(required)}；请在 config/local.env 中设置"
+            return {"ok": False, "action": action, "returncode": -1, "stdout": "", "stderr": detail, "error": detail}
+        needs_combined_robot_runtime = (
+            env.get("VOICE_AUDIO_SOURCE", "robot") == "robot"
+            and env.get("UNITREE_ENABLE", "1") not in {"0", "false", "False", "no", "off"}
+            and env.get("UNITREE_BACKEND", "relay") == "relay"
+        )
+        if needs_combined_robot_runtime:
+            robot_runtime = robot_runtime_starter()
+            if not robot_runtime.get("ok"):
+                return {
+                    "ok": False,
+                    "action": action,
+                    "returncode": -1,
+                    "stdout": "",
+                    "stderr": str(robot_runtime.get("error", "robot runtime unavailable")),
+                    "error": str(robot_runtime.get("error", "robot runtime unavailable")),
+                    "robot_runtime": robot_runtime,
+                }
     command = ["./scripts/run_pipeline.sh", "--mode", "wake"] if action == "start" else ["./scripts/stop_pipeline.sh"]
     timeout_sec = PIPELINE_START_TIMEOUT_SEC if action == "start" else PIPELINE_STOP_TIMEOUT_SEC
     try:
@@ -824,6 +869,8 @@ def _make_robot_relay_client() -> Any:
     from robot_relay.robot_relay_client import RobotRelayClient
 
     host = os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"]
+    if not host:
+        raise RuntimeError("缺少必需配置：ROBOT_RELAY_HOST；请在 config/local.env 中设置")
     port = int(os.environ.get("ROBOT_RELAY_PORT") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_PORT"])
     timeout_sec = float(
         os.environ.get("ROBOT_RELAY_TIMEOUT_SEC") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_TIMEOUT_SEC"]

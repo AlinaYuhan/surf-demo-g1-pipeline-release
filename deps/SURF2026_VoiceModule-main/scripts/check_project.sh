@@ -92,11 +92,19 @@ fi
 echo ""
 echo "6. Network config"
 ok "UNITREE_DOMAIN_ID = ${UNITREE_DOMAIN_ID:-0}"
-ok "UNITREE_NETWORK_INTERFACE = ${UNITREE_NETWORK_INTERFACE:-enp8s0}"
+if [[ -n "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
+  ok "UNITREE_NETWORK_INTERFACE = ${UNITREE_NETWORK_INTERFACE}"
+else
+  fail "UNITREE_NETWORK_INTERFACE is not configured (required for direct Unitree DDS)"
+fi
 ok "VOICE_AUDIO_SOURCE = ${VOICE_AUDIO_SOURCE:-local}"
 if [[ "${VOICE_AUDIO_SOURCE:-local}" == "robot" ]]; then
   ok "VOICE_ROBOT_MIC_GROUP = ${VOICE_ROBOT_MIC_GROUP:-239.168.123.161}"
-  ok "VOICE_ROBOT_MIC_IF = ${VOICE_ROBOT_MIC_IF:-192.168.123.225}"
+  if [[ -n "${VOICE_ROBOT_MIC_IF:-}" ]]; then
+    ok "VOICE_ROBOT_MIC_IF = ${VOICE_ROBOT_MIC_IF}"
+  else
+    fail "VOICE_ROBOT_MIC_IF is not configured for robot audio"
+  fi
 fi
 
 # ── 7. ROS2 topics ────────────────────────────────────────────────────────────

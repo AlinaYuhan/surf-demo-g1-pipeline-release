@@ -6,7 +6,8 @@ def test_g1_arm_action_runner_matches_pipeline_contract():
         encoding="utf-8"
     )
 
-    assert 'parser.add_argument("--network", required=True' in source
+    assert 'default=os.environ.get("UNITREE_NETWORK_INTERFACE", "")' in source
+    assert "UNITREE_NETWORK_INTERFACE or --network is required for direct mode" in source
     assert 'parser.add_argument("--id", required=True, type=int' in source
     assert "ChannelFactoryInitialize(0, args.network)" in source
     assert "client.ExecuteAction(args.id)" in source

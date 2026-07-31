@@ -8,6 +8,7 @@ PCM16, 20 ms (640-byte) UDP packets.
 from __future__ import annotations
 
 import argparse
+import os
 import socket
 import subprocess
 import sys
@@ -35,7 +36,7 @@ from beamforming.mic_runtime import (  # noqa: E402
 )
 
 
-DEFAULT_DESTINATION = "192.168.123.225"
+DEFAULT_DESTINATION = os.environ.get("VOICE_ROBOT_MIC_IF", "").strip()
 DEFAULT_PORT = 5556
 DEFAULT_DEVICE = "hw:2,0"
 DEFAULT_CHANNELS = 8
@@ -51,7 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
         description="8-channel USB microphone processor and UDP streamer",
     )
     parser.add_argument("--device", default=DEFAULT_DEVICE, help="ALSA device")
-    parser.add_argument("--dest", default=DEFAULT_DESTINATION, help="computer IP")
+    parser.add_argument(
+        "--dest",
+        default=DEFAULT_DESTINATION,
+        required=not bool(DEFAULT_DESTINATION),
+        help="computer IP (required, or set VOICE_ROBOT_MIC_IF)",
+    )
     parser.add_argument("--port", default=DEFAULT_PORT, type=int)
     parser.add_argument("--mode", choices=("mean4", "beamformer"), default="mean4")
     parser.add_argument("--channels", type=int, default=DEFAULT_CHANNELS)

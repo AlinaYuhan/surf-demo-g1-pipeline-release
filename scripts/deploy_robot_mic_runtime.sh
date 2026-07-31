@@ -4,7 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-ROBOT_HOST="${ROBOT_RELAY_HOST:-192.168.123.164}"
+set -a
+source "${PROJECT_ROOT}/config/default.env"
+if [[ -f "${PROJECT_ROOT}/config/local.env" ]]; then
+  source "${PROJECT_ROOT}/config/local.env"
+fi
+set +a
+
+ROBOT_HOST="${ROBOT_RELAY_HOST:-}"
+: "${ROBOT_HOST:?ROBOT_RELAY_HOST is required; set it in config/local.env or the environment}"
 ROBOT_USER="${ROBOT_SSH_USER:-unitree}"
 ROBOT_ROOT="${ROBOT_MIC_RUNTIME_ROOT:-/home/unitree/surf_robot_mic}"
 SSH_KEY="${ROBOT_SSH_IDENTITY_FILE:-${HOME}/.ssh/surf_robot_ed25519}"

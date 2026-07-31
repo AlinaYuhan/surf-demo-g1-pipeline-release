@@ -15,10 +15,15 @@ from typing import Any
 HOST = os.environ.get("ROBOT_RELAY_BIND_HOST", os.environ.get("ROBOT_RELAY_HOST", "0.0.0.0"))
 PORT = int(os.environ.get("ROBOT_RELAY_PORT", "9999"))
 SDK_PATH = os.environ.get("UNITREE_SDK2_PYTHON", "/home/unitree/unitree_sdk2_python")
-NETWORK_INTERFACE = os.environ.get("UNITREE_NETWORK_INTERFACE", "eth0")
+NETWORK_INTERFACE = os.environ.get("UNITREE_NETWORK_INTERFACE", "").strip()
 DOMAIN = int(os.environ.get("UNITREE_DOMAIN_ID", "0"))
-VOICE_PEER = os.environ.get("UNITREE_VOICE_PEER", "192.168.123.161")
+VOICE_PEER = os.environ.get("UNITREE_VOICE_PEER", "").strip()
 TIMEOUT = float(os.environ.get("UNITREE_AUDIO_TIMEOUT", "10.0"))
+
+if not NETWORK_INTERFACE:
+    raise SystemExit("UNITREE_NETWORK_INTERFACE is required; set the Jetson robot-network interface")
+if not VOICE_PEER:
+    raise SystemExit("UNITREE_VOICE_PEER is required; set the Unitree voice peer address")
 
 os.environ["CYCLONEDDS_URI"] = (
     "<CycloneDDS><Domain><General>"

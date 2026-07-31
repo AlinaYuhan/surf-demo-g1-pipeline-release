@@ -39,6 +39,19 @@ from http.server import ThreadingHTTPServer
 
 
 class PipelineMonitorTests(unittest.TestCase):
+    def setUp(self):
+        self._machine_config = patch.dict(
+            os.environ,
+            {
+                "ROBOT_RELAY_HOST": "192.168.123.164",
+                "VOICE_ROBOT_MIC_IF": "192.168.123.225",
+            },
+        )
+        self._machine_config.start()
+
+    def tearDown(self):
+        self._machine_config.stop()
+
     def test_run_pipeline_simulate_wake_calls_control_without_begin(self):
         calls = []
 

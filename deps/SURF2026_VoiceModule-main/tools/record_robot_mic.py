@@ -18,7 +18,7 @@ record_robot_mic.py — 分位置/距离录制宇树 G1 麦克风阵列原始音
 
 前提：
     - 机器人网线已连接
-    - 本机 IP 为 192.168.123.225（可用 VOICE_ROBOT_MIC_IF 覆盖）
+    - 已通过 VOICE_ROBOT_MIC_IF 设置本机的机器人网络接口 IP
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ FRAME_BYTES  = int(SAMPLE_RATE * FRAME_MS / 1000) * SAMPLE_WIDTH
 
 GROUP_IP  = os.environ.get("VOICE_ROBOT_MIC_GROUP", "239.168.123.161")
 PORT      = int(os.environ.get("VOICE_ROBOT_MIC_PORT", "5555"))
-LOCAL_IF  = os.environ.get("VOICE_ROBOT_MIC_IF", "192.168.123.225")
+LOCAL_IF  = os.environ.get("VOICE_ROBOT_MIC_IF", "").strip()
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "recordings"
 
@@ -64,6 +64,8 @@ POSITION_ZH = {"front": "正前方", "left": "左侧", "right": "右侧"}
 # ── 录音核心 ──────────────────────────────────────────────────────────────────
 
 def open_socket() -> socket.socket:
+    if not LOCAL_IF:
+        raise SystemExit("VOICE_ROBOT_MIC_IF is required for robot audio recording")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("", PORT))

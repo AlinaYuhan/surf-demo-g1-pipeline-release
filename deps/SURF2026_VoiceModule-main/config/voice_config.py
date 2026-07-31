@@ -45,7 +45,7 @@ class VoiceConfig:
     audio_source: str           = _env("VOICE_AUDIO_SOURCE", "local")
     robot_mic_group: str        = _env("VOICE_ROBOT_MIC_GROUP", "239.168.123.161")
     robot_mic_port: int         = _env_int("VOICE_ROBOT_MIC_PORT", 5555)
-    robot_mic_interface: str    = _env("VOICE_ROBOT_MIC_IF", "192.168.123.225")
+    robot_mic_interface: str    = _env("VOICE_ROBOT_MIC_IF", "")
 
     wake_words: tuple[str, ...] = _env_list("VOICE_WAKE_WORDS", ("hey jarvis", "alexa"))
     wake_threshold: float       = _env_float("VOICE_WAKE_THRESHOLD", 0.5)
@@ -85,7 +85,7 @@ class VoiceConfig:
     ros_speaker_topic: str      = _env("VOICE_ROS_SPEAKER_TOPIC", "/speaker_id")
 
     unitree_domain_id: int      = _env_int("UNITREE_DOMAIN_ID", 0)
-    unitree_network_interface: str = _env("UNITREE_NETWORK_INTERFACE", "enp8s0")
+    unitree_network_interface: str = _env("UNITREE_NETWORK_INTERFACE", "")
 
     @property
     def frame_bytes(self) -> int:

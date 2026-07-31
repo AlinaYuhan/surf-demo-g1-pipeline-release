@@ -217,10 +217,10 @@ class ProjectConfig:
 
     unitree_domain_id: int = _env_int("UNITREE_DOMAIN_ID", 0)
     unitree_enable: bool = _env_bool("UNITREE_ENABLE", True)
-    unitree_network_interface: str = _env("UNITREE_NETWORK_INTERFACE", "enp8s0")
+    unitree_network_interface: str = _env("UNITREE_NETWORK_INTERFACE", "")
     unitree_audio_volume: int = _env_int("UNITREE_AUDIO_VOLUME", 85)
     unitree_backend: str = _env("UNITREE_BACKEND", "relay")
-    robot_relay_host: str = _env("ROBOT_RELAY_HOST", "192.168.123.164")
+    robot_relay_host: str = _env("ROBOT_RELAY_HOST", "")
     robot_relay_port: int = _env_int("ROBOT_RELAY_PORT", 9999)
     robot_relay_timeout_sec: float = _env_float("ROBOT_RELAY_TIMEOUT_SEC", 5.0)
 

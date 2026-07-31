@@ -9,5 +9,8 @@ cd "${PROJECT_ROOT}"
 set -a
 # Keep the monitor's robot runtime settings aligned with the pipeline settings.
 source "${PROJECT_ROOT}/config/default.env"
+if [[ -f "${PROJECT_ROOT}/config/local.env" ]]; then
+  source "${PROJECT_ROOT}/config/local.env"
+fi
 set +a
 exec "${PYTHON_BIN}" -m pipeline_monitor.server "$@"
