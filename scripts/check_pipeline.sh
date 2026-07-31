@@ -6,6 +6,9 @@ cd "${WORKSPACE_ROOT}"
 
 set -a
 source "${WORKSPACE_ROOT}/config/default.env"
+if [[ -f "${WORKSPACE_ROOT}/config/local.env" ]]; then
+  source "${WORKSPACE_ROOT}/config/local.env"
+fi
 source "${SURF_ROOT}/config/default.env"
 set +a
 

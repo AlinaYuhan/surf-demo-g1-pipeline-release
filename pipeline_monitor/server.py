@@ -68,6 +68,28 @@ TURN_MODE_FILENAME = "turn_mode.json"
 FIRST_TURN_MODE_FILENAME = "first_turn_mode.json"
 
 
+def _normalized_runtime_value(env: dict[str, str], name: str, default: str) -> str:
+    value = str(env.get(name, default)).strip().lower()
+    return value or default
+
+
+def _unitree_enabled(env: dict[str, str]) -> bool:
+    return _normalized_runtime_value(env, "UNITREE_ENABLE", "1") not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _required_robot_components(env: dict[str, str]) -> tuple[bool, bool]:
+    require_relay = _unitree_enabled(env) and _normalized_runtime_value(
+        env, "UNITREE_BACKEND", "relay"
+    ) == "relay"
+    require_mic = _normalized_runtime_value(env, "VOICE_AUDIO_SOURCE", "robot") == "robot"
+    return require_relay, require_mic
+
+
 def turn_mode_status(runtime_dir: Path | None = None) -> dict[str, Any]:
     root = runtime_dir or (PROJECT_ROOT / "runtime")
     mode = TurnModeStore(root / TURN_MODE_FILENAME).read()
@@ -527,20 +549,61 @@ def ensure_robot_runtime(
     relay_checker: Any = robot_relay_status,
     mic_checker: Any = robot_mic_status,
     sleep: Any = time.sleep,
+    require_relay: bool = True,
+    require_mic: bool = True,
 ) -> dict[str, Any]:
     destination = os.environ.get("VOICE_ROBOT_MIC_IF") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_IF"]
     port = os.environ.get("VOICE_ROBOT_MIC_PORT") or PIPELINE_ENV_DEFAULTS["VOICE_ROBOT_MIC_PORT"]
     missing = tuple(
         name
         for name, value in (
-            ("ROBOT_RELAY_HOST", os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"]),
-            ("VOICE_ROBOT_MIC_IF", destination),
+            (
+                "ROBOT_RELAY_HOST",
+                (os.environ.get("ROBOT_RELAY_HOST") or PIPELINE_ENV_DEFAULTS["ROBOT_RELAY_HOST"])
+                if require_relay or require_mic
+                else "not-required",
+            ),
+            ("VOICE_ROBOT_MIC_IF", destination if require_mic else "not-required"),
         )
         if not value
     )
     if missing:
         status = _configuration_not_ready(*missing)
         return {"ok": False, **status}
+    if not require_relay and not require_mic:
+        return {"ok": True, "relay_ready": False, "mic_ready": False}
+    if not require_mic:
+        remote_command = " ".join(
+            [
+                "set -eu;",
+                "mkdir -p ~/surf_robot_relay/logs;",
+                "if ! pgrep -f '[j]etson_robot_relay.py' >/dev/null; then",
+                "setsid -f ~/surf_robot_relay/scripts/run_jetson_robot_relay.sh",
+                "> ~/surf_robot_relay/logs/jetson_robot_relay.log 2>&1 </dev/null;",
+                "fi;",
+                "echo robot-runtime-ready",
+            ]
+        )
+        try:
+            result = command_runner(
+                _robot_ssh_command(remote_command),
+                cwd=PROJECT_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=12,
+            )
+        except Exception as exc:
+            return {"ok": False, "error": f"机器人 SSH 启动失败：{exc}"}
+        payload = _completed_process_payload(result)
+        if payload["returncode"] != 0:
+            error = payload["stderr"] or payload["stdout"] or "unknown SSH failure"
+            return {"ok": False, "error": f"机器人端 relay 启动失败：{error}", **payload}
+        for _ in range(12):
+            relay = relay_checker()
+            if relay.get("ready"):
+                return {"ok": True, "relay_ready": True, "mic_ready": False, **payload}
+            sleep(0.5)
+        return {"ok": False, "error": "机器人端 relay 未就绪", "relay": relay, **payload}
     try:
         settings = _robot_mic_settings()
     except ValueError as exc:
@@ -625,14 +688,16 @@ def ensure_robot_runtime(
 
     probe_payload = _completed_process_payload(probe_result)
     mic_running = probe_payload["returncode"] == 0 and bool(probe_payload["stdout"])
-    remote_parts = [
-        "set -eu;",
-        f"mkdir -p ~/surf_robot_relay/logs {ROBOT_MIC_RUNTIME_ROOT}/logs;",
-        "if ! pgrep -f '[j]etson_robot_relay.py' >/dev/null; then",
-        "setsid -f ~/surf_robot_relay/scripts/run_jetson_robot_relay.sh",
-        "> ~/surf_robot_relay/logs/jetson_robot_relay.log 2>&1 </dev/null;",
-        "fi;",
-    ]
+    remote_parts = ["set -eu;", f"mkdir -p ~/surf_robot_relay/logs {ROBOT_MIC_RUNTIME_ROOT}/logs;"]
+    if require_relay:
+        remote_parts.extend(
+            [
+                "if ! pgrep -f '[j]etson_robot_relay.py' >/dev/null; then",
+                "setsid -f ~/surf_robot_relay/scripts/run_jetson_robot_relay.sh",
+                "> ~/surf_robot_relay/logs/jetson_robot_relay.log 2>&1 </dev/null;",
+                "fi;",
+            ]
+        )
     if not mic_running:
         mic_command = [
             "env",
@@ -681,15 +746,21 @@ def ensure_robot_runtime(
     relay: dict[str, Any] = {"ready": False}
     mic: dict[str, Any] = {"ready": False}
     for _ in range(12):
-        relay = relay_checker()
+        if require_relay:
+            relay = relay_checker()
         mic = mic_checker()
-        if relay.get("ready") and mic.get("ready"):
-            return {"ok": True, "relay_ready": True, "mic_ready": True, **payload}
+        if (not require_relay or relay.get("ready")) and mic.get("ready"):
+            return {
+                "ok": True,
+                "relay_ready": require_relay,
+                "mic_ready": True,
+                **payload,
+            }
         sleep(0.5)
 
     return {
         "ok": False,
-        "error": "机器人端 relay 或外置麦克风推流未就绪",
+        "error": "机器人端所需运行组件未就绪",
         "relay": relay,
         "mic": mic,
         **payload,
@@ -702,14 +773,7 @@ def pipeline_status(
     mic_checker: Any = robot_mic_status,
 ) -> dict[str, Any]:
     env = {**PIPELINE_ENV_DEFAULTS, **os.environ}
-    unitree_enabled = str(env.get("UNITREE_ENABLE", "1")).strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
-    relay_required = unitree_enabled and str(env.get("UNITREE_BACKEND", "relay")).strip().lower() == "relay"
-    mic_required = str(env.get("VOICE_AUDIO_SOURCE", "robot")).strip().lower() == "robot"
+    relay_required, mic_required = _required_robot_components(env)
     services: dict[str, dict[str, Any]] = {}
     components: dict[str, dict[str, Any]] = {}
     active_count = 0
@@ -808,25 +872,30 @@ def run_pipeline_command(
         runtime_root / FIRST_TURN_MODE_FILENAME
     ).read()
     if action == "start":
+        unitree_enabled = _unitree_enabled(env)
+        backend = _normalized_runtime_value(env, "UNITREE_BACKEND", "relay")
+        audio_source = _normalized_runtime_value(env, "VOICE_AUDIO_SOURCE", "robot")
+        require_relay, require_mic = _required_robot_components(env)
         required: list[str] = []
-        if env.get("UNITREE_ENABLE", "1") not in {"0", "false", "False", "no", "off"}:
-            if env.get("UNITREE_BACKEND", "relay") == "relay":
+        if unitree_enabled:
+            if backend == "relay":
                 if not env.get("ROBOT_RELAY_HOST"):
                     required.append("ROBOT_RELAY_HOST")
             elif not env.get("UNITREE_NETWORK_INTERFACE"):
                 required.append("UNITREE_NETWORK_INTERFACE")
-        if env.get("VOICE_AUDIO_SOURCE", "robot") == "robot" and not env.get("VOICE_ROBOT_MIC_IF"):
-            required.append("VOICE_ROBOT_MIC_IF")
+        if audio_source == "robot":
+            if not env.get("ROBOT_RELAY_HOST") and "ROBOT_RELAY_HOST" not in required:
+                required.append("ROBOT_RELAY_HOST")
+            if not env.get("VOICE_ROBOT_MIC_IF"):
+                required.append("VOICE_ROBOT_MIC_IF")
         if required:
             detail = f"缺少必需配置：{', '.join(required)}；请在 config/local.env 中设置"
             return {"ok": False, "action": action, "returncode": -1, "stdout": "", "stderr": detail, "error": detail}
-        needs_combined_robot_runtime = (
-            env.get("VOICE_AUDIO_SOURCE", "robot") == "robot"
-            and env.get("UNITREE_ENABLE", "1") not in {"0", "false", "False", "no", "off"}
-            and env.get("UNITREE_BACKEND", "relay") == "relay"
-        )
-        if needs_combined_robot_runtime:
-            robot_runtime = robot_runtime_starter()
+        if require_relay or require_mic:
+            robot_runtime = robot_runtime_starter(
+                require_relay=require_relay,
+                require_mic=require_mic,
+            )
             if not robot_runtime.get("ok"):
                 return {
                     "ok": False,

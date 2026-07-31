@@ -432,7 +432,7 @@ class PipelineMonitorTests(unittest.TestCase):
         result = run_pipeline_command(
             "start",
             command_runner=fake_runner,
-            robot_runtime_starter=lambda: {"ok": True, "relay_ready": True, "mic_ready": True},
+            robot_runtime_starter=lambda **_kwargs: {"ok": True, "relay_ready": True, "mic_ready": True},
             services_ready_checker=lambda: True,
         )
 
@@ -469,7 +469,7 @@ class PipelineMonitorTests(unittest.TestCase):
             result = run_pipeline_command(
                 "start",
                 command_runner=fake_runner,
-                robot_runtime_starter=lambda: {"ok": True, "relay_ready": True, "mic_ready": True},
+                robot_runtime_starter=lambda **_kwargs: {"ok": True, "relay_ready": True, "mic_ready": True},
                 services_ready_checker=lambda: True,
                 first_turn_runtime_dir=runtime_dir,
             )
@@ -485,7 +485,7 @@ class PipelineMonitorTests(unittest.TestCase):
         result = run_pipeline_command(
             "start",
             command_runner=fake_runner,
-            robot_runtime_starter=lambda: {"ok": True, "relay_ready": True, "mic_ready": True},
+            robot_runtime_starter=lambda **_kwargs: {"ok": True, "relay_ready": True, "mic_ready": True},
         )
 
         self.assertFalse(result["ok"])
@@ -499,7 +499,7 @@ class PipelineMonitorTests(unittest.TestCase):
         result = run_pipeline_command(
             "start",
             command_runner=fake_runner,
-            robot_runtime_starter=lambda: {"ok": True, "relay_ready": True, "mic_ready": True},
+            robot_runtime_starter=lambda **_kwargs: {"ok": True, "relay_ready": True, "mic_ready": True},
             services_ready_checker=lambda: False,
         )
 
@@ -646,6 +646,41 @@ card 2: APE [NVIDIA Jetson Orin NX APE], device 0: tegra-dlink-0 []
         self.assertIn("/usr/bin/python3", start_command)
         self.assertNotIn("~/Desktop/stream_usb_mic.py", start_command)
 
+        calls.clear()
+        mic_only = ensure_robot_runtime(
+            command_runner=fake_runner,
+            relay_checker=lambda: (_ for _ in ()).throw(AssertionError("relay checked")),
+            mic_checker=lambda: {"ready": True},
+            sleep=lambda _: None,
+            require_relay=False,
+            require_mic=True,
+        )
+        self.assertTrue(mic_only["ok"])
+        self.assertNotIn("run_jetson_robot_relay.sh", calls[-1][0][-1])
+
+    def test_ensure_robot_runtime_can_start_relay_without_mic_runtime(self):
+        commands = []
+
+        def fake_runner(command, **_kwargs):
+            commands.append(command[-1])
+            return type(
+                "Result", (), {"returncode": 0, "stdout": "robot-runtime-ready\n", "stderr": ""}
+            )()
+
+        result = ensure_robot_runtime(
+            command_runner=fake_runner,
+            relay_checker=lambda: {"ready": True},
+            mic_checker=lambda: (_ for _ in ()).throw(AssertionError("mic checked")),
+            sleep=lambda _: None,
+            require_relay=True,
+            require_mic=False,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(commands), 1)
+        self.assertIn("run_jetson_robot_relay.sh", commands[0])
+        self.assertNotIn("stream_usb_mic.py", commands[0])
+
     def test_ensure_robot_runtime_refuses_to_fall_back_when_new_mic_runtime_is_missing(self):
         calls = []
 
@@ -683,7 +718,7 @@ card 2: APE [NVIDIA Jetson Orin NX APE], device 0: tegra-dlink-0 []
         result = run_pipeline_command(
             "start",
             command_runner=fake_runner,
-            robot_runtime_starter=lambda: {"ok": False, "error": "ssh key not installed"},
+            robot_runtime_starter=lambda **_kwargs: {"ok": False, "error": "ssh key not installed"},
         )
 
         self.assertFalse(result["ok"])

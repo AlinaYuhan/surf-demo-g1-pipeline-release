@@ -6,6 +6,9 @@ cd "${WORKSPACE_ROOT}"
 
 set -a
 source "${WORKSPACE_ROOT}/config/default.env"
+if [[ -f "${WORKSPACE_ROOT}/config/local.env" ]]; then
+  source "${WORKSPACE_ROOT}/config/local.env"
+fi
 set +a
 
 MODE="${SURF_LLM_MODE}"
@@ -47,6 +50,12 @@ log_unit_tail() {
 unit_is_running() {
   local unit="$1"
   systemctl --user is-active --quiet "${unit}"
+}
+
+normalize_runtime_value() {
+  local value="${1//[[:space:]]/}"
+  value="${value,,}"
+  printf '%s' "${value:-$2}"
 }
 
 resolve_unitree_availability() {
@@ -182,15 +191,26 @@ if [[ "${MODE}" != "listen" && "${MODE}" != "wake" ]]; then
   exit 1
 fi
 
-if [[ "${VOICE_AUDIO_SOURCE:-robot}" == "robot" && -z "${VOICE_ROBOT_MIC_IF:-}" ]]; then
-  echo "VOICE_ROBOT_MIC_IF is required when VOICE_AUDIO_SOURCE=robot; set it in config/local.env" >&2
-  exit 2
+UNITREE_ENABLE="$(normalize_runtime_value "${UNITREE_ENABLE:-}" "1")"
+UNITREE_BACKEND="$(normalize_runtime_value "${UNITREE_BACKEND:-}" "relay")"
+VOICE_AUDIO_SOURCE="$(normalize_runtime_value "${VOICE_AUDIO_SOURCE:-}" "robot")"
+export UNITREE_ENABLE UNITREE_BACKEND VOICE_AUDIO_SOURCE
+
+if [[ "${VOICE_AUDIO_SOURCE}" == "robot" ]]; then
+  if [[ -z "${ROBOT_RELAY_HOST:-}" ]]; then
+    echo "ROBOT_RELAY_HOST is required to manage robot microphone streaming; set it in config/local.env" >&2
+    exit 2
+  fi
+  if [[ -z "${VOICE_ROBOT_MIC_IF:-}" ]]; then
+    echo "VOICE_ROBOT_MIC_IF is required when VOICE_AUDIO_SOURCE=robot; set it in config/local.env" >&2
+    exit 2
+  fi
 fi
-if [[ "${UNITREE_ENABLE:-1}" =~ ^(1|true|TRUE|yes|YES|on|ON)$ ]]; then
-  if [[ "${UNITREE_BACKEND:-relay}" == "relay" && -z "${ROBOT_RELAY_HOST:-}" ]]; then
+if [[ "${UNITREE_ENABLE}" =~ ^(1|true|yes|on)$ ]]; then
+  if [[ "${UNITREE_BACKEND}" == "relay" && -z "${ROBOT_RELAY_HOST:-}" ]]; then
     echo "ROBOT_RELAY_HOST is required when UNITREE_BACKEND=relay; set it in config/local.env" >&2
     exit 2
-  elif [[ "${UNITREE_BACKEND:-relay}" != "relay" && -z "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
+  elif [[ "${UNITREE_BACKEND}" != "relay" && -z "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
     echo "UNITREE_NETWORK_INTERFACE is required for direct Unitree DDS; set it in config/local.env" >&2
     exit 2
   fi

@@ -6,6 +6,9 @@ cd "${WORKSPACE_ROOT}"
 
 set -a
 source "${WORKSPACE_ROOT}/config/default.env"
+if [[ -f "${WORKSPACE_ROOT}/config/local.env" ]]; then
+  source "${WORKSPACE_ROOT}/config/local.env"
+fi
 set +a
 
 : "${ROBOT_RELAY_HOST:?ROBOT_RELAY_HOST is required; set it in config/local.env or the environment}"

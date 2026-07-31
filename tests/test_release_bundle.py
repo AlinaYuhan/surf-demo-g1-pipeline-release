@@ -20,12 +20,23 @@ def _tracked_fixture(tmp_path: Path) -> Path:
         "xjtlu-rag-system/rag_index.db": "approved database\n",
         "xjtlu-rag-system/xjtlu_knowledge.db": "approved database\n",
         "config/local.env": "OPENAI_API_KEY=secret\n",
+        ".env.production": "OPENAI_API_KEY=secret\n",
+        "config/service.local.env": "OPENAI_API_KEY=secret\n",
+        "config/credentials.yaml": "token: secret\n",
+        "deploy/app-secrets.yml": "token: secret\n",
+        "config/local.env.example": "OPENAI_API_KEY=\n",
         "runtime/session.json": "runtime state\n",
         "logs/pipeline.log": "local log\n",
         ".cache/huggingface/model.bin": "download cache\n",
         "xjtlu-rag-system/chat_memory.db": "conversation memory\n",
         "models/local-model.onnx": "downloaded model\n",
         "docs/archive/internal-plan.md": "historical development note\n",
+        "vendor/librobot.a": "prebuilt archive\n",
+        "vendor/librobot.so": "prebuilt shared object\n",
+        "vendor/librobot.so.2": "versioned shared object\n",
+        "vendor/robot.dll": "prebuilt Windows library\n",
+        "vendor/librobot.dylib": "prebuilt macOS library\n",
+        "vendor/robot.exe": "prebuilt executable\n",
     }
     for relative_path, content in files.items():
         path = fixture / relative_path
@@ -33,6 +44,7 @@ def _tracked_fixture(tmp_path: Path) -> Path:
         path.write_text(content, encoding="utf-8")
 
     subprocess.run(["git", "init", "-q"], cwd=fixture, check=True)
+    (fixture / "public-source-link").symlink_to("README.md")
     subprocess.run(["git", "add", "-f", "."], cwd=fixture, check=True)
     return fixture
 
@@ -62,15 +74,27 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
     assert (bundle / "source/src/main.py").is_file()
     assert (bundle / "source/xjtlu-rag-system/rag_index.db").is_file()
     assert (bundle / "source/xjtlu-rag-system/xjtlu_knowledge.db").is_file()
+    assert (bundle / "source/config/local.env.example").is_file()
 
     forbidden = (
         "source/config/local.env",
+        "source/.env.production",
+        "source/config/service.local.env",
+        "source/config/credentials.yaml",
+        "source/deploy/app-secrets.yml",
         "source/runtime/session.json",
         "source/logs/pipeline.log",
         "source/.cache/huggingface/model.bin",
         "source/xjtlu-rag-system/chat_memory.db",
         "source/models/local-model.onnx",
         "source/docs/archive/internal-plan.md",
+        "source/vendor/librobot.a",
+        "source/vendor/librobot.so",
+        "source/vendor/librobot.so.2",
+        "source/vendor/robot.dll",
+        "source/vendor/librobot.dylib",
+        "source/vendor/robot.exe",
+        "source/public-source-link",
     )
     for relative_path in forbidden:
         assert not (bundle / relative_path).exists(), relative_path

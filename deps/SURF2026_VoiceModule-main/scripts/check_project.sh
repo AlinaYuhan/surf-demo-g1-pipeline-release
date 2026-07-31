@@ -92,10 +92,21 @@ fi
 echo ""
 echo "6. Network config"
 ok "UNITREE_DOMAIN_ID = ${UNITREE_DOMAIN_ID:-0}"
-if [[ -n "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
-  ok "UNITREE_NETWORK_INTERFACE = ${UNITREE_NETWORK_INTERFACE}"
+unitree_enable="${UNITREE_ENABLE:-1}"
+unitree_enable="${unitree_enable//[[:space:]]/}"
+unitree_enable="${unitree_enable,,}"
+unitree_backend="${UNITREE_BACKEND:-relay}"
+unitree_backend="${unitree_backend//[[:space:]]/}"
+unitree_backend="${unitree_backend,,}"
+unitree_backend="${unitree_backend:-relay}"
+if [[ "${unitree_enable:-1}" =~ ^(1|true|yes|on)$ && "${unitree_backend}" != "relay" ]]; then
+  if [[ -n "${UNITREE_NETWORK_INTERFACE:-}" ]]; then
+    ok "UNITREE_NETWORK_INTERFACE = ${UNITREE_NETWORK_INTERFACE}"
+  else
+    fail "UNITREE_NETWORK_INTERFACE is not configured (required for direct Unitree DDS)"
+  fi
 else
-  fail "UNITREE_NETWORK_INTERFACE is not configured (required for direct Unitree DDS)"
+  ok "UNITREE_NETWORK_INTERFACE not required for the selected runtime mode"
 fi
 ok "VOICE_AUDIO_SOURCE = ${VOICE_AUDIO_SOURCE:-local}"
 if [[ "${VOICE_AUDIO_SOURCE:-local}" == "robot" ]]; then

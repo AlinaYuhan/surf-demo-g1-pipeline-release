@@ -87,7 +87,7 @@ def test_monitor_start_fails_before_runtime_or_shell_when_required_config_missin
     result = server.run_pipeline_command(
         "start",
         command_runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("shell attempted")),
-        robot_runtime_starter=lambda: (_ for _ in ()).throw(AssertionError("runtime attempted")),
+        robot_runtime_starter=lambda **_kwargs: (_ for _ in ()).throw(AssertionError("runtime attempted")),
     )
     assert not result["ok"]
     assert "ROBOT_RELAY_HOST" in result["error"]
@@ -104,7 +104,7 @@ def test_monitor_local_non_unitree_start_skips_robot_runtime(monkeypatch):
         command_runner=lambda *_args, **_kwargs: type(
             "Result", (), {"returncode": 0, "stdout": "started", "stderr": ""}
         )(),
-        robot_runtime_starter=lambda: (_ for _ in ()).throw(AssertionError("runtime attempted")),
+        robot_runtime_starter=lambda **_kwargs: (_ for _ in ()).throw(AssertionError("runtime attempted")),
         services_ready_checker=lambda: True,
     )
     assert result["ok"]
@@ -114,6 +114,12 @@ def test_launchers_source_local_config_and_validate_jetson_network_values():
     monitor = (ROOT / "scripts/run_pipeline_monitor.sh").read_text(encoding="utf-8")
     assert 'source "${PROJECT_ROOT}/config/default.env"' in monitor
     assert 'source "${PROJECT_ROOT}/config/local.env"' in monitor
+
+    for relative_path in ("scripts/run_pipeline.sh", "scripts/check_robot_relay.sh", "scripts/check_pipeline.sh"):
+        launcher = (ROOT / relative_path).read_text(encoding="utf-8")
+        default_source = launcher.index("config/default.env")
+        local_source = launcher.index("source", default_source + 1)
+        assert "config/local.env" in launcher[local_source:]
 
     env = {"PATH": os.environ["PATH"]}
     result = subprocess.run(
@@ -155,8 +161,9 @@ def test_direct_relay_python_and_action_cli_fail_before_sdk_or_network_when_conf
 @pytest.mark.parametrize(
     ("audio_source", "unitree_enable", "unitree_backend", "expected_checks"),
     [
-        ("local", "0", "relay", []),
+        (" local ", " FALSE ", " Relay ", []),
         ("local", "1", "relay", ["relay"]),
+        ("local", "1", " ", ["relay"]),
         ("robot", "0", "relay", ["mic"]),
         ("robot", "1", "direct", ["mic"]),
     ],
@@ -188,6 +195,96 @@ def test_pipeline_status_checks_only_components_required_by_runtime_mode(
 
     assert checks == expected_checks
     assert status["state"] == "running"
+
+
+def test_monitor_start_requires_and_starts_exact_runtime_components(monkeypatch):
+    base = {
+        "ROBOT_RELAY_HOST": "robot.example",
+        "VOICE_ROBOT_MIC_IF": "robot0",
+        "UNITREE_NETWORK_INTERFACE": "dds0",
+    }
+
+    cases = [
+        ({"VOICE_AUDIO_SOURCE": " robot ", "UNITREE_ENABLE": "1", "UNITREE_BACKEND": " direct "}, {"require_relay": False, "require_mic": True}),
+        ({"VOICE_AUDIO_SOURCE": "local", "UNITREE_ENABLE": "1", "UNITREE_BACKEND": " Relay "}, {"require_relay": True, "require_mic": False}),
+        ({"VOICE_AUDIO_SOURCE": "robot", "UNITREE_ENABLE": " FALSE ", "UNITREE_BACKEND": "relay"}, {"require_relay": False, "require_mic": True}),
+    ]
+    for overrides, expected in cases:
+        calls = []
+        for name, value in {**base, **overrides}.items():
+            monkeypatch.setenv(name, value)
+        result = server.run_pipeline_command(
+            "start",
+            command_runner=lambda *_args, **_kwargs: type(
+                "Result", (), {"returncode": 0, "stdout": "started", "stderr": ""}
+            )(),
+            robot_runtime_starter=lambda **kwargs: calls.append(kwargs) or {"ok": True},
+            services_ready_checker=lambda: True,
+        )
+        assert result["ok"]
+        assert calls == [expected]
+
+
+def test_monitor_direct_robot_audio_requires_ssh_host_before_start(monkeypatch):
+    monkeypatch.setenv("VOICE_AUDIO_SOURCE", "robot")
+    monkeypatch.setenv("UNITREE_ENABLE", "1")
+    monkeypatch.setenv("UNITREE_BACKEND", "direct")
+    monkeypatch.setenv("UNITREE_NETWORK_INTERFACE", "dds0")
+    monkeypatch.setenv("VOICE_ROBOT_MIC_IF", "robot0")
+    monkeypatch.delenv("ROBOT_RELAY_HOST", raising=False)
+    monkeypatch.setitem(server.PIPELINE_ENV_DEFAULTS, "ROBOT_RELAY_HOST", "")
+
+    result = server.run_pipeline_command(
+        "start",
+        command_runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("shell attempted")),
+        robot_runtime_starter=lambda **_kwargs: (_ for _ in ()).throw(AssertionError("runtime attempted")),
+    )
+
+    assert not result["ok"]
+    assert "ROBOT_RELAY_HOST" in result["error"]
+
+
+@pytest.mark.parametrize(
+    ("unitree_enable", "unitree_backend", "expect_interface_failure"),
+    [("0", "direct", False), ("1", "relay", False), ("1", "direct", True)],
+)
+def test_voice_project_check_requires_interface_only_for_enabled_direct_dds(
+    tmp_path, unitree_enable, unitree_backend, expect_interface_failure
+):
+    project = tmp_path / "voice"
+    (project / "scripts").mkdir(parents=True)
+    (project / "config").mkdir()
+    (project / "models/kws").mkdir(parents=True)
+    (project / "scripts/check_project.sh").write_text(
+        (ROOT / "deps/SURF2026_VoiceModule-main/scripts/check_project.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (project / "config/default.env").write_text(
+        "\n".join(
+            [
+                "VOICE_PYTHON=/bin/true",
+                "VOICE_ASR_MODEL=model-id",
+                "VOICE_KWS_MODEL_DIR=${PROJECT_ROOT}/models/kws",
+                f"UNITREE_ENABLE={unitree_enable}",
+                f"UNITREE_BACKEND={unitree_backend}",
+                "UNITREE_NETWORK_INTERFACE=",
+                "VOICE_AUDIO_SOURCE=local",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    for name in ("encoder-test.int8.onnx", "decoder-test.int8.onnx", "joiner-test.int8.onnx", "tokens.txt", "keywords.txt"):
+        (project / "models/kws" / name).touch()
+
+    result = subprocess.run(
+        ["bash", str(project / "scripts/check_project.sh")],
+        cwd=project,
+        text=True,
+        capture_output=True,
+    )
+
+    has_failure = "[FAIL] UNITREE_NETWORK_INTERFACE is not configured" in result.stdout
+    assert has_failure is expect_interface_failure
 
 
 @pytest.mark.parametrize(
