@@ -140,7 +140,7 @@ class ProjectConfig:
             ("Let me check.", "Let me think.", "One moment."),
         )
     )
-    thinking_ack_cache_version: str = _env("LLM_THINKING_ACK_CACHE_VERSION", "v1")
+    thinking_ack_cache_version: str = _env("LLM_THINKING_ACK_CACHE_VERSION", "v2")
     thinking_ack_skip_action_intent: bool = _env_bool("LLM_THINKING_ACK_SKIP_ACTION_INTENT", True)
     thinking_ack_play_gap_sec: float = _env_float("LLM_THINKING_ACK_PLAY_GAP_SEC", 0.0)
     thinking_action_enable: bool = _env_bool_compat("SURF_LLM_THINKING_ACTION_ENABLE", "SURF_QWEN_THINKING_ACTION_ENABLE", False)

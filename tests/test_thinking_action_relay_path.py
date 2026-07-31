@@ -35,6 +35,10 @@ class ThinkingActionRelayPathTests(unittest.TestCase):
         )
         self.assertIn("thinking_ack_texts_zh", source)
         self.assertIn("thinking_ack_texts_en", source)
+        self.assertIn(
+            'thinking_ack_cache_version: str = _env("LLM_THINKING_ACK_CACHE_VERSION", "v2")',
+            source,
+        )
         self.assertIn('"LLM_THINKING_ACK_PLAY_GAP_SEC", 0.0', source)
         self.assertIn("thinking_action_id", source)
         self.assertIn('LLM_THINKING_ACTION_ID"', source)
