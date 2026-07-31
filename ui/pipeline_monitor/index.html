@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>G1 Pipeline Monitor</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260728-session-buttons" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260731-control-layout" />
   </head>
   <body>
     <main class="app">
@@ -14,33 +14,79 @@
           <p id="logPath">等待日志...</p>
         </div>
         <div class="top-actions">
-          <div id="pipelineStatus" class="status">Pipeline: checking</div>
-          <div id="sessionStatus" class="status session-status">Session: unknown</div>
-          <div class="turn-mode-control" role="group" aria-label="轮次检测模式">
-            <span id="turnModeCurrent" class="turn-mode-current">模式：快速转写</span>
-            <button id="turnModeBasic" class="turn-mode-option" type="button" aria-pressed="true">快速</button>
-            <button id="turnModeSmart" class="turn-mode-option" type="button" aria-pressed="false">停顿</button>
+          <div class="status-strip" aria-label="Pipeline 当前状态">
+            <div id="pipelineStatus" class="status">Pipeline: checking</div>
+            <div id="sessionStatus" class="status session-status">Session: unknown</div>
+            <div id="connection" class="status connection-status">Connecting</div>
           </div>
-          <div class="turn-mode-control" role="group" aria-label="首轮应答模式">
-            <span id="firstTurnModeCurrent" class="turn-mode-current">首轮：标准</span>
-            <button id="firstTurnModeStandard" class="turn-mode-option" type="button" aria-pressed="true">标准</button>
-            <button id="firstTurnModeCompatible" class="turn-mode-option" type="button" aria-pressed="false">兼容</button>
+
+          <div class="control-deck" aria-label="Pipeline 控制台">
+            <div class="control-cluster mode-settings">
+              <span class="control-label">模式</span>
+              <div class="turn-mode-control" role="group" aria-label="轮次检测模式">
+                <span id="turnModeCurrent" class="turn-mode-current">模式：快速转写</span>
+                <span class="mode-label" aria-hidden="true">轮次</span>
+                <button id="turnModeBasic" class="turn-mode-option" type="button" aria-pressed="true">快速</button>
+                <button id="turnModeSmart" class="turn-mode-option" type="button" aria-pressed="false">停顿</button>
+              </div>
+              <div class="turn-mode-control" role="group" aria-label="首轮应答模式">
+                <span id="firstTurnModeCurrent" class="turn-mode-current">首轮：标准</span>
+                <span class="mode-label" aria-hidden="true">首轮</span>
+                <button id="firstTurnModeStandard" class="turn-mode-option" type="button" aria-pressed="true">标准</button>
+                <button id="firstTurnModeCompatible" class="turn-mode-option" type="button" aria-pressed="false">兼容</button>
+              </div>
+            </div>
+
+            <div class="control-cluster pipeline-actions" role="group" aria-label="Pipeline 运行控制">
+              <span class="control-label">Pipeline</span>
+              <button id="startPipelineButton" class="pipeline-start" type="button">启动</button>
+              <button id="stopPipelineButton" class="pipeline-stop" type="button">停止</button>
+            </div>
+
+            <div class="control-cluster session-actions" role="group" aria-label="会话控制">
+              <span class="control-label">会话</span>
+              <button
+                id="simulateWakeButton"
+                class="session-command wake"
+                type="button"
+                aria-label="模拟唤醒"
+                title="模拟唤醒并开始首轮对话"
+                disabled
+              >
+                唤醒
+              </button>
+              <button
+                id="interruptPipelineButton"
+                class="interrupt-command"
+                type="button"
+                aria-label="打断并听取"
+                title="停止当前播报并立即开始听取"
+                disabled
+              >
+                打断
+              </button>
+              <button
+                id="endSessionButton"
+                class="session-command"
+                type="button"
+                aria-label="关闭会话"
+                title="关闭会话并播放结束语"
+                disabled
+              >
+                结束
+              </button>
+              <button
+                id="silentEndButton"
+                class="session-command silent"
+                type="button"
+                aria-label="静默关闭"
+                title="立即关闭会话，不播放结束语"
+                disabled
+              >
+                静默结束
+              </button>
+            </div>
           </div>
-          <button id="startPipelineButton" type="button">启动 Pipeline</button>
-          <button id="stopPipelineButton" type="button">停止 Pipeline</button>
-          <button id="interruptPipelineButton" class="interrupt-command" type="button" disabled>
-            打断并听取
-          </button>
-          <button id="endSessionButton" class="session-command" type="button" disabled>
-            关闭会话
-          </button>
-          <button id="silentEndButton" class="session-command silent" type="button" disabled>
-            静默关闭
-          </button>
-          <button id="simulateWakeButton" class="session-command wake" type="button" disabled>
-            模拟唤醒
-          </button>
-          <div id="connection" class="status">Connecting</div>
         </div>
       </header>
 

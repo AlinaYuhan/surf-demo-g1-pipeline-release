@@ -43,9 +43,9 @@ body {
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(620px, auto);
+  gap: 24px;
   align-items: center;
   padding: 18px 20px;
   border-radius: 8px;
@@ -80,11 +80,53 @@ h1 {
 }
 
 .top-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.status-strip {
   display: flex;
-  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.control-deck {
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.control-cluster {
+  display: flex;
   align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: color-mix(in oklch, var(--panel-2) 82%, var(--panel));
+}
+
+.control-label {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.mode-settings {
+  gap: 6px;
+}
+
+.pipeline-actions,
+.session-actions {
+  flex: 0 0 auto;
 }
 
 #pipelineStatus {
@@ -97,29 +139,42 @@ h1 {
 
 .turn-mode-control {
   display: grid;
-  grid-template-columns: auto 54px 54px;
+  grid-template-columns: auto 44px 44px;
   align-items: stretch;
-  min-height: 34px;
+  min-height: 28px;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel-2);
+  border-radius: 5px;
+  background: var(--panel);
 }
 
 .turn-mode-current {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mode-label {
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 7px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
 .turn-mode-option {
   border-width: 0 0 0 1px;
   border-radius: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   background: transparent;
+  font-size: 12px;
 }
 
 .turn-mode-option.active {
@@ -347,13 +402,43 @@ button {
   cursor: pointer;
 }
 
+.control-cluster > button {
+  min-height: 28px;
+  padding: 5px 9px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.control-cluster > button:not(:disabled):hover {
+  background: var(--panel-2);
+}
+
+.pipeline-start:not(:disabled),
+.session-command.wake:not(:disabled) {
+  background: color-mix(in oklch, var(--asr) 13%, var(--panel-2));
+  color: var(--asr);
+  font-weight: 650;
+}
+
+.pipeline-stop:not(:disabled),
+.session-command.silent:not(:disabled) {
+  color: color-mix(in oklch, var(--error) 82%, var(--text));
+}
+
+.session-command.silent:not(:disabled):hover,
+.pipeline-stop:not(:disabled):hover {
+  background: color-mix(in oklch, var(--error) 10%, var(--panel-2));
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.56;
 }
 
 .interrupt-command {
-  border-color: color-mix(in srgb, var(--llm) 55%, var(--line));
+  border-color: transparent;
   color: var(--llm);
   font-weight: 650;
 }
@@ -486,8 +571,28 @@ button:disabled {
   }
 
   .top-actions {
-    justify-content: flex-start;
+    justify-items: stretch;
     width: 100%;
+  }
+
+  .status-strip,
+  .control-deck {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .control-cluster {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .mode-settings {
+    display: grid;
+    grid-template-columns: auto 1fr;
+  }
+
+  .mode-settings .turn-mode-control {
+    grid-template-columns: 1fr 52px 52px;
   }
 
   .summary {
