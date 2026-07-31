@@ -81,6 +81,18 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
     for relative_path in forbidden:
         assert relative_path not in manifest
 
+    bundle_readme = (bundle / "README.md").read_text(encoding="utf-8")
+    assert "research/beamforming/teacher_reference_20260630/" in bundle_readme
+    assert "redistribution permission" in bundle_readme.lower()
+
+
+def test_packaging_notes_flag_teacher_reference_redistribution_decision():
+    packaging = (ROOT / "PACKAGING.md").read_text(encoding="utf-8")
+
+    assert "research/beamforming/teacher_reference_20260630/" in packaging
+    assert "redistribution permission" in packaging.lower()
+    assert "exclude" in packaging
+
 
 def test_builder_refuses_to_replace_an_existing_target(tmp_path):
     fixture = _tracked_fixture(tmp_path)

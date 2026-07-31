@@ -159,6 +159,14 @@ install dependencies and models on the target machine.
 
 The optional XJTLU RAG source and its approved knowledge databases may be
 present, but RAG is not the default reply backend.
+
+## Redistribution warning
+
+Git-tracked MATLAB scripts and filter data under
+`source/research/beamforming/teacher_reference_20260630/` may be present in this
+snapshot. Redistribution permission for these teacher-provided assets is still
+unconfirmed. Do not publish this bundle until permission is documented or that
+directory is explicitly excluded from the public artifact.
 EOF
 
 if [[ "${MAKE_TAR}" == "1" ]]; then

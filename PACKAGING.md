@@ -44,6 +44,15 @@ even if one of those files was accidentally added to Git. Exclusions include:
 `config/local.env.example` remains in the source snapshot as the safe
 configuration template.
 
+### Pending teacher-reference permission
+
+The tracked directory `research/beamforming/teacher_reference_20260630/`
+contains teacher-provided MATLAB scripts and filter data (`.m`, `.mat` and
+`.npz`). The builder currently leaves these tracked source assets in the bundle
+because their disposition has not been decided. **Do not publish the artifact**
+until redistribution permission is documented; if permission is not granted,
+exclude the directory from the public bundle before release.
+
 ## Install on the target machine
 
 This is not an offline or ready-to-run binary bundle. After unpacking, follow
