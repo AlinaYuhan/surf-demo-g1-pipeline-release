@@ -204,7 +204,7 @@ class ProjectConfig:
     self_speech_similarity_threshold: float = _env_float("LLM_SELF_SPEECH_SIMILARITY_THRESHOLD", 0.90)
 
     model_path: str = _env_compat("LLM_MODEL_PATH", "QWEN_MODEL_PATH", str(DEPS_ROOT / "Qwen3.5-0.8B" / "model"))
-    reply_backend: str = _env_compat("LLM_REPLY_BACKEND", "QWEN_REPLY_BACKEND", "local")
+    reply_backend: str = _env_compat("LLM_REPLY_BACKEND", "QWEN_REPLY_BACKEND", "deepseek")
     dashscope_model: str = _env_compat("LLM_DASHSCOPE_MODEL", "QWEN_DASHSCOPE_MODEL", "qwen-plus")
     dashscope_base_url: str = _env_compat("LLM_DASHSCOPE_BASE_URL", "QWEN_DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     deepseek_model: str = _env_compat("LLM_DEEPSEEK_MODEL", "QWEN_DEEPSEEK_MODEL", _env("CHAT_MODEL", "deepseek-v4-pro"))
@@ -219,7 +219,7 @@ class ProjectConfig:
     unitree_enable: bool = _env_bool("UNITREE_ENABLE", True)
     unitree_network_interface: str = _env("UNITREE_NETWORK_INTERFACE", "enp8s0")
     unitree_audio_volume: int = _env_int("UNITREE_AUDIO_VOLUME", 85)
-    unitree_backend: str = _env("UNITREE_BACKEND", "direct")
+    unitree_backend: str = _env("UNITREE_BACKEND", "relay")
     robot_relay_host: str = _env("ROBOT_RELAY_HOST", "192.168.123.164")
     robot_relay_port: int = _env_int("ROBOT_RELAY_PORT", 9999)
     robot_relay_timeout_sec: float = _env_float("ROBOT_RELAY_TIMEOUT_SEC", 5.0)

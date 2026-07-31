@@ -52,6 +52,79 @@ class DefaultEnvShellTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "30")
 
+    def test_runtime_defaults_use_deepseek_and_jetson_relay(self):
+        default_env = (ROOT / "config" / "default.env").read_text(encoding="utf-8")
+        local_example = (ROOT / "config" / "local.env.example").read_text(encoding="utf-8")
+
+        self.assertIn('LLM_REPLY_BACKEND="${LLM_REPLY_BACKEND:-${QWEN_REPLY_BACKEND:-deepseek}}"', default_env)
+        self.assertIn('UNITREE_BACKEND="${UNITREE_BACKEND:-relay}"', default_env)
+        self.assertIn('LLM_REPLY_BACKEND="deepseek"', local_example)
+        self.assertIn('UNITREE_BACKEND="relay"', local_example)
+
+    def test_python_config_fallbacks_match_runtime_defaults(self):
+        result = subprocess.run(
+            [
+                "env",
+                "-u",
+                "LLM_REPLY_BACKEND",
+                "-u",
+                "QWEN_REPLY_BACKEND",
+                "-u",
+                "UNITREE_BACKEND",
+                "python3",
+                "-c",
+                (
+                    "from project_config import ProjectConfig; "
+                    "config = ProjectConfig(); "
+                    "print(config.reply_backend, config.unitree_backend)"
+                ),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "deepseek relay")
+
+    def test_monitor_fallback_matches_relay_runtime_default(self):
+        from pipeline_monitor.server import PIPELINE_ENV_DEFAULTS
+
+        self.assertEqual(PIPELINE_ENV_DEFAULTS["UNITREE_BACKEND"], "relay")
+
+    def test_setup_creates_voice312_with_python_312(self):
+        setup_script = (ROOT / "scripts" / "setup_conda_envs.sh").read_text(encoding="utf-8")
+        default_env = (ROOT / "config" / "default.env").read_text(encoding="utf-8")
+        local_example = (ROOT / "config" / "local.env.example").read_text(encoding="utf-8")
+
+        self.assertIn('VOICE_ENV="${VOICE_ENV:-voice312}"', setup_script)
+        self.assertIn('VOICE_PYTHON_VERSION="${VOICE_PYTHON_VERSION:-3.12}"', setup_script)
+        self.assertIn("/envs/voice312/bin/python", default_env)
+        self.assertIn("/envs/voice312/bin/python", local_example)
+        self.assertIn('VOICE_PYTHON_VERSION="${VOICE_PYTHON_VERSION:-3.12}"', default_env)
+        self.assertIn('VOICE_PYTHON_VERSION="3.12"', local_example)
+
+    def test_example_uses_current_thinking_ack_cache_version(self):
+        local_example = (ROOT / "config" / "local.env.example").read_text(encoding="utf-8")
+
+        self.assertIn('LLM_THINKING_ACK_CACHE_VERSION="v2"', local_example)
+
+    def test_rag_preflight_dependencies_are_guarded_by_backend(self):
+        script = (ROOT / "scripts" / "check_pipeline.sh").read_text(encoding="utf-8")
+        guarded = re.search(
+            r'if \[\[ "\$\{LLM_REPLY_BACKEND\}" == "rag" \]\]; then(?P<body>.*?)\nfi',
+            script,
+            re.DOTALL,
+        )
+
+        self.assertIsNotNone(guarded)
+        rag_checks = guarded.group("body")
+        self.assertIn('xjtlu-rag-system/app.py', rag_checks)
+        self.assertIn('xjtlu-rag-system/rag_index.db', rag_checks)
+        self.assertIn('xjtlu-rag-system/xjtlu_knowledge.db', rag_checks)
+        self.assertIn('test -x "${OLLAMA_BIN}"', rag_checks)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,9 +5,9 @@ WORKSPACE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${WORKSPACE_ROOT}"
 
 LLM_ENV="${LLM_ENV:-llm}"
-VOICE_ENV="${VOICE_ENV:-voice}"
+VOICE_ENV="${VOICE_ENV:-voice312}"
 LLM_PYTHON_VERSION="${LLM_PYTHON_VERSION:-3.12}"
-VOICE_PYTHON_VERSION="${VOICE_PYTHON_VERSION:-3.11}"
+VOICE_PYTHON_VERSION="${VOICE_PYTHON_VERSION:-3.12}"
 
 if ! command -v conda >/dev/null 2>&1; then
   echo "conda is required. Install Miniconda/Anaconda first, then rerun this script." >&2

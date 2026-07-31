@@ -22,10 +22,12 @@ test -f "${WORKSPACE_ROOT}/llm_surf_context_node.py"
 test -f "${WORKSPACE_ROOT}/unitree_audio_player.py"
 test -f "${WORKSPACE_ROOT}/pipeline_log/pipeline_logger.py"
 test -f "${WORKSPACE_ROOT}/wav.py"
-test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/app.py"
-test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/rag_index.db"
-test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/xjtlu_knowledge.db"
-test -x "${OLLAMA_BIN}"
+if [[ "${LLM_REPLY_BACKEND}" == "rag" ]]; then
+  test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/app.py"
+  test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/rag_index.db"
+  test -f "${WORKSPACE_ROOT}/xjtlu-rag-system/xjtlu_knowledge.db"
+  test -x "${OLLAMA_BIN}"
+fi
 
 bash -n "${WORKSPACE_ROOT}/scripts/run_pipeline.sh"
 bash -n "${WORKSPACE_ROOT}/scripts/stop_pipeline.sh"

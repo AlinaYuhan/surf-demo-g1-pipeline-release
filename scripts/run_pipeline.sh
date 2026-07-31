@@ -61,7 +61,7 @@ resolve_unitree_availability() {
       ;;
   esac
 
-  if [[ "${UNITREE_BACKEND:-direct}" == "relay" ]]; then
+  if [[ "${UNITREE_BACKEND:-relay}" == "relay" ]]; then
     export UNITREE_ENABLE=1
     return 0
   fi
