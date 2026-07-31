@@ -74,7 +74,7 @@ h1 {
   align-items: center;
   justify-content: center;
   min-width: 104px;
-  min-height: 40px;
+  min-height: 36px;
   padding: 8px 12px;
   border-radius: 6px;
   background: var(--panel-2);
@@ -87,7 +87,7 @@ h1 {
   justify-items: end;
   gap: 10px;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.2;
 }
 
@@ -101,7 +101,7 @@ h1 {
 
 .control-deck {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: stretch;
   gap: 8px;
   width: 100%;
@@ -111,7 +111,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 5px;
-  min-height: 40px;
+  min-height: 36px;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -151,7 +151,7 @@ h1 {
   display: grid;
   grid-template-columns: auto 44px 44px;
   align-items: stretch;
-  min-height: 30px;
+  min-height: 28px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 5px;
@@ -412,7 +412,7 @@ button {
 }
 
 .control-cluster > button {
-  min-height: 30px;
+  min-height: 28px;
   padding: 5px 9px;
   border-color: transparent;
   background: transparent;
