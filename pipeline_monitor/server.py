@@ -74,11 +74,11 @@ def _normalized_runtime_value(env: dict[str, str], name: str, default: str) -> s
 
 
 def _unitree_enabled(env: dict[str, str]) -> bool:
-    return _normalized_runtime_value(env, "UNITREE_ENABLE", "1") not in {
-        "0",
-        "false",
-        "no",
-        "off",
+    return _normalized_runtime_value(env, "UNITREE_ENABLE", "1") in {
+        "1",
+        "true",
+        "yes",
+        "on",
     }
 
 

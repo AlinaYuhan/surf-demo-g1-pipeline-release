@@ -197,6 +197,23 @@ def test_pipeline_status_checks_only_components_required_by_runtime_mode(
     assert status["state"] == "running"
 
 
+def test_invalid_unitree_enable_value_is_consistently_treated_as_disabled(monkeypatch):
+    monkeypatch.setenv("VOICE_AUDIO_SOURCE", "local")
+    monkeypatch.setenv("UNITREE_ENABLE", "garbage")
+    monkeypatch.setenv("UNITREE_BACKEND", "relay")
+
+    def active_service(_command, **_kwargs):
+        return type("Result", (), {"returncode": 0, "stdout": "active\n", "stderr": ""})()
+
+    status = server.pipeline_status(
+        command_runner=active_service,
+        relay_checker=lambda: (_ for _ in ()).throw(AssertionError("relay checked")),
+        mic_checker=lambda: (_ for _ in ()).throw(AssertionError("mic checked")),
+    )
+
+    assert status["state"] == "running"
+
+
 def test_monitor_start_requires_and_starts_exact_runtime_components(monkeypatch):
     base = {
         "ROBOT_RELAY_HOST": "robot.example",
