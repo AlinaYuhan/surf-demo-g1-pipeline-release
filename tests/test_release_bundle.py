@@ -30,7 +30,9 @@ def _tracked_fixture(tmp_path: Path) -> Path:
         ".cache/huggingface/model.bin": "download cache\n",
         "xjtlu-rag-system/chat_memory.db": "conversation memory\n",
         "models/local-model.onnx": "downloaded model\n",
-        "docs/archive/internal-plan.md": "historical development note\n",
+        "docs/archive/README.md": "curated historical documentation\n",
+        "docs/plans/internal-plan.md": "private development plan\n",
+        "docs/work_reports/internal-report.md": "private work report\n",
         "vendor/librobot.a": "prebuilt archive\n",
         "vendor/librobot.so": "prebuilt shared object\n",
         "vendor/librobot.so.2": "versioned shared object\n",
@@ -75,6 +77,7 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
     assert (bundle / "source/xjtlu-rag-system/rag_index.db").is_file()
     assert (bundle / "source/xjtlu-rag-system/xjtlu_knowledge.db").is_file()
     assert (bundle / "source/config/local.env.example").is_file()
+    assert (bundle / "source/docs/archive/README.md").is_file()
 
     forbidden = (
         "source/config/local.env",
@@ -87,7 +90,8 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
         "source/.cache/huggingface/model.bin",
         "source/xjtlu-rag-system/chat_memory.db",
         "source/models/local-model.onnx",
-        "source/docs/archive/internal-plan.md",
+        "source/docs/plans/internal-plan.md",
+        "source/docs/work_reports/internal-report.md",
         "source/vendor/librobot.a",
         "source/vendor/librobot.so",
         "source/vendor/librobot.so.2",

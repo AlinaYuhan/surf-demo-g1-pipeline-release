@@ -44,7 +44,8 @@ even if one of those files was accidentally added to Git. Exclusions include:
   representable as regular files in the checksum manifest;
 - compiled objects and prebuilt native libraries/executables (`.a`, `.so`,
   versioned `.so.*`, `.dll`, `.dylib`, `.exe`, `.lib`, `.o` and `.obj`);
-- internal plans, work logs/reports and archived development notes.
+- internal plans, work logs and work reports. Curated historical notes under
+  `docs/archive/` remain included because the public README links to them.
 
 Third-party SDKs and native components must therefore be installed or built
 locally on the target machine from their documented upstream sources.

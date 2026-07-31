@@ -96,7 +96,7 @@ is_public_bundle_path() {
     runtime/*|*/runtime/*|logs/*|*/logs/*|cache/*|*/cache/*|.cache/*|*/.cache/*|__pycache__/*|*/__pycache__/*|.pytest_cache/*|*/.pytest_cache/*)
       return 1
       ;;
-    docs/archive/*|docs/plans/*|docs/superpowers/*|docs/work_logs/*|docs/work_reports/*|*/docs/plans/*|*/docs/superpowers/*|*/docs/work_logs/*|*/docs/work_reports/*)
+    docs/plans/*|docs/superpowers/*|docs/work_logs/*|docs/work_reports/*|*/docs/plans/*|*/docs/superpowers/*|*/docs/work_logs/*|*/docs/work_reports/*)
       return 1
       ;;
     xjtlu-rag-system/chat_memory.db|*/chat_memory.db)
