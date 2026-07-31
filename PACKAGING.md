@@ -36,13 +36,18 @@ DeepSeek.
 The public artifact does **not** copy local machine state or downloaded assets,
 even if one of those files was accidentally added to Git. Exclusions include:
 
-- `config/local.env`, `.env`, API-key/credential files and private keys;
+- `config/local.env`, `.env` variants, API-key/credential files and private
+  keys (the safe `config/local.env.example` template is retained);
 - runtime/session state, logs, caches, chat memory and generated audio;
 - downloaded model weights such as ONNX, SafeTensors, GGUF and PyTorch files;
+- Git-tracked symbolic links, because they may escape the snapshot and are not
+  representable as regular files in the checksum manifest;
+- compiled objects and prebuilt native libraries/executables (`.a`, `.so`,
+  versioned `.so.*`, `.dll`, `.dylib`, `.exe`, `.lib`, `.o` and `.obj`);
 - internal plans, work logs/reports and archived development notes.
 
-`config/local.env.example` remains in the source snapshot as the safe
-configuration template.
+Third-party SDKs and native components must therefore be installed or built
+locally on the target machine from their documented upstream sources.
 
 ### Pending teacher-reference permission
 

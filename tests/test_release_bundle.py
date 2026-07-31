@@ -102,8 +102,13 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
     manifest = (bundle / "MANIFEST.sha256").read_text(encoding="utf-8")
     assert "source/README.md" in manifest
     assert "source/xjtlu-rag-system/rag_index.db" in manifest
+    manifested_paths = {
+        line.split("  ", maxsplit=1)[1]
+        for line in manifest.splitlines()
+        if "  " in line
+    }
     for relative_path in forbidden:
-        assert relative_path not in manifest
+        assert relative_path not in manifested_paths
 
     bundle_readme = (bundle / "README.md").read_text(encoding="utf-8")
     assert "research/beamforming/teacher_reference_20260630/" in bundle_readme

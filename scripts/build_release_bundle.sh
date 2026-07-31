@@ -90,7 +90,7 @@ is_public_bundle_path() {
   local path="$1"
 
   case "${path}" in
-    config/local.env|*/config/local.env|*.local.env|*/.env|.env)
+    config/local.env|*/config/local.env|*.local.env|.env|*/.env|.env.*|*/.env.*)
       return 1
       ;;
     runtime/*|*/runtime/*|logs/*|*/logs/*|cache/*|*/cache/*|.cache/*|*/.cache/*|__pycache__/*|*/__pycache__/*|.pytest_cache/*|*/.pytest_cache/*)
@@ -105,7 +105,10 @@ is_public_bundle_path() {
     *.onnx|*.safetensors|*.gguf|*.ckpt|*.pt|*.pth)
       return 1
       ;;
-    *.pem|*.key|*.p12|*.pfx|*credentials.json|*secrets.json)
+    *.pem|*.key|*.p12|*.pfx|*credentials.json|*credentials.yaml|*credentials.yml|*secrets.json|*secrets.yaml|*secrets.yml)
+      return 1
+      ;;
+    *.a|*.so|*.so.*|*.dll|*.dylib|*.exe|*.lib|*.o|*.obj)
       return 1
       ;;
     *.log|*.wav|*.mp3)
@@ -125,12 +128,18 @@ is_public_bundle_path() {
 }
 
 tracked_public_paths() {
-  local path
-  while IFS= read -r -d '' path; do
+  local entry metadata mode path
+  while IFS= read -r -d '' entry; do
+    metadata="${entry%%$'\t'*}"
+    mode="${metadata%% *}"
+    path="${entry#*$'\t'}"
+    # A tracked symlink can point outside the source snapshot, while rsync's
+    # default behavior would copy the link without adding it to the manifest.
+    [[ "${mode}" != "120000" ]] || continue
     if is_public_bundle_path "${path}"; then
       printf '%s\0' "${path}"
     fi
-  done < <(git -C "${WORKSPACE_ROOT}" ls-files -z)
+  done < <(git -C "${WORKSPACE_ROOT}" ls-files --stage -z)
 }
 
 mkdir -p "${TARGET_ROOT}/source"
