@@ -5,32 +5,31 @@ usage() {
   cat <<'EOF'
 Usage: build_release_bundle.sh [--output DIR] [--name NAME] [--tar]
 
-Build a relocatable release bundle containing:
-  - surf_llm_workspace
-  - SURF2026_VoiceModule-main
-  - qwen_ros_node_edg_tts third_party Unitree SDK subtree
-  - unitree_g1_action_classifier_package source and runner
-  - local Qwen model directory
-  - SURF ASR model directory
-  - Hugging Face voiceprint cache
+Build an auditable source-only release bundle from Git-tracked files.
 
-The bundle still needs working voice/LLM Python environments on the target
-machine. Set VOICE_PYTHON and LLM_PYTHON before running the bundled launcher.
+The default bundle does not include downloaded models, caches, chat memory,
+logs, API keys, config/local.env, or internal development archives. Models and
+Python environments must be installed on the target machine as documented in
+the repository.
 EOF
+}
+
+fail() {
+  echo "Error: $*" >&2
+  exit 1
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "${WORKSPACE_ROOT}"
-
-OUTPUT_DIR="${HOME}/surf_llm_release"
-NAME="surf_llm_bundle"
+OUTPUT_DIR="${WORKSPACE_ROOT}/release-output"
+NAME="surf_llm_source"
 MAKE_TAR=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --output)
-      OUTPUT_DIR="${2:-}"
+      [[ $# -ge 2 ]] || fail "--output requires a directory."
+      OUTPUT_DIR="$2"
       shift 2
       ;;
     --output=*)
@@ -38,7 +37,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --name)
-      NAME="${2:-}"
+      [[ $# -ge 2 ]] || fail "--name requires a value."
+      NAME="$2"
       shift 2
       ;;
     --name=*)
@@ -61,184 +61,110 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! command -v rsync >/dev/null 2>&1; then
-  echo "rsync is required to build the bundle." >&2
-  exit 1
+command -v git >/dev/null 2>&1 || fail "git is required to build the bundle."
+command -v rsync >/dev/null 2>&1 || fail "rsync is required to build the bundle."
+command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is required to build the manifest."
+git -C "${WORKSPACE_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  || fail "the workspace must be a Git worktree."
+
+[[ -n "${OUTPUT_DIR}" ]] || fail "output directory must not be empty."
+[[ "${NAME}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+  || fail "bundle name may contain only letters, numbers, dot, underscore, and hyphen."
+[[ "${NAME}" != "." && "${NAME}" != ".." ]] || fail "invalid bundle name."
+
+mkdir -p "${OUTPUT_DIR}"
+OUTPUT_DIR_REAL="$(cd "${OUTPUT_DIR}" && pwd -P)"
+TARGET_ROOT="${OUTPUT_DIR_REAL}/${NAME}"
+TARBALL="${TARGET_ROOT}.tar"
+
+# Refuse to overwrite anything. This avoids recursive deletion and makes a
+# repeated invocation explicit to the operator.
+[[ ! -e "${TARGET_ROOT}" && ! -L "${TARGET_ROOT}" ]] \
+  || fail "target already exists: ${TARGET_ROOT}"
+if [[ "${MAKE_TAR}" == "1" ]]; then
+  [[ ! -e "${TARBALL}" && ! -L "${TARBALL}" ]] \
+    || fail "tarball already exists: ${TARBALL}"
 fi
 
-set -a
-source "${WORKSPACE_ROOT}/config/default.env"
-source "${SURF_ROOT}/config/default.env"
-set +a
+is_public_bundle_path() {
+  local path="$1"
 
-SURF_ROOT_REAL="$(readlink -f "${SURF_ROOT}")"
-LLM_ROOT_REAL="$(readlink -f "${LLM_ROOT}")"
-ACTION_ROOT_REAL="$(readlink -f "$(dirname "$(dirname "${LLM_ACTION_SCRIPT}")")")"
-LLM_MODEL_REAL="$(readlink -f "${LLM_MODEL_PATH}")"
-VOICE_ASR_MODEL_REAL="$(readlink -f "${VOICE_ASR_MODEL}")"
-VOICEPRINT_REAL="${HOME}/.cache/huggingface/hub/models--pyannote--wespeaker-voxceleb-resnet34-LM"
-
-TARGET_ROOT="${OUTPUT_DIR%/}/${NAME}"
-rm -rf "${TARGET_ROOT}"
-mkdir -p "${TARGET_ROOT}"/{deps,models,cache,workspace}
-
-copy_tree() {
-  local src="$1"
-  local dst="$2"
-  shift 2 || true
-  if [[ ! -e "${src}" ]]; then
-    echo "Missing source: ${src}" >&2
-    exit 1
-  fi
-  mkdir -p "${dst}"
-  rsync -a --delete "$@" "${src}/" "${dst}/"
+  case "${path}" in
+    config/local.env|*/config/local.env|*.local.env|*/.env|.env)
+      return 1
+      ;;
+    runtime/*|*/runtime/*|logs/*|*/logs/*|cache/*|*/cache/*|.cache/*|*/.cache/*|__pycache__/*|*/__pycache__/*|.pytest_cache/*|*/.pytest_cache/*)
+      return 1
+      ;;
+    docs/archive/*|docs/plans/*|docs/superpowers/*|docs/work_logs/*|docs/work_reports/*|*/docs/plans/*|*/docs/superpowers/*|*/docs/work_logs/*|*/docs/work_reports/*)
+      return 1
+      ;;
+    xjtlu-rag-system/chat_memory.db|*/chat_memory.db)
+      return 1
+      ;;
+    *.onnx|*.safetensors|*.gguf|*.ckpt|*.pt|*.pth)
+      return 1
+      ;;
+    *.pem|*.key|*.p12|*.pfx|*credentials.json|*secrets.json)
+      return 1
+      ;;
+    *.log|*.wav|*.mp3)
+      return 1
+      ;;
+    *.db|*.sqlite|*.sqlite3)
+      case "${path}" in
+        xjtlu-rag-system/rag_index.db|xjtlu-rag-system/xjtlu_knowledge.db)
+          ;;
+        *)
+          return 1
+          ;;
+      esac
+      ;;
+  esac
+  return 0
 }
 
-copy_tree "${WORKSPACE_ROOT}" "${TARGET_ROOT}/workspace/surf_llm_workspace" \
-  --exclude '.git' \
-  --exclude '.agents' \
-  --exclude '.codex' \
-  --exclude '.env' \
-  --exclude '*.local.env' \
-  --exclude 'config/local.env' \
-  --exclude 'deps' \
-  --exclude 'runtime' \
-  --exclude 'release-output' \
-  --exclude 'surf_llm_bundle' \
-  --exclude 'surf_llm_bundle.tar' \
-  --exclude 'logs' \
-  --exclude 'logs.zip' \
-  --exclude '*.log' \
-  --exclude '*.wav' \
-  --exclude '*.mp3' \
-  --exclude '__pycache__' \
-  --exclude '.pytest_cache'
+tracked_public_paths() {
+  local path
+  while IFS= read -r -d '' path; do
+    if is_public_bundle_path "${path}"; then
+      printf '%s\0' "${path}"
+    fi
+  done < <(git -C "${WORKSPACE_ROOT}" ls-files -z)
+}
 
-copy_tree "${SURF_ROOT_REAL}" "${TARGET_ROOT}/deps/SURF2026_VoiceModule-main" \
-  --exclude '.git' \
-  --exclude '__pycache__' \
-  --exclude '.pytest_cache' \
-  --exclude 'runtime'
+mkdir -p "${TARGET_ROOT}/source"
+tracked_public_paths | rsync -a --from0 --files-from=- \
+  "${WORKSPACE_ROOT}/" "${TARGET_ROOT}/source/"
 
-mkdir -p "${TARGET_ROOT}/deps/qwen_ros_node_edg_tts/third_party"
-copy_tree "${LLM_ROOT_REAL}/third_party/unitree_sdk2_python" \
-  "${TARGET_ROOT}/deps/qwen_ros_node_edg_tts/third_party/unitree_sdk2_python"
-
-copy_tree "${ACTION_ROOT_REAL}" "${TARGET_ROOT}/deps/unitree_g1_action_classifier_package" \
-  --exclude '.git' \
-  --exclude '.venv' \
-  --exclude '__pycache__' \
-  --exclude '.pytest_cache'
-
-mkdir -p "${TARGET_ROOT}/models/Qwen3.5-0.8B"
-copy_tree "${LLM_MODEL_REAL}" "${TARGET_ROOT}/models/Qwen3.5-0.8B/model"
-
-mkdir -p "${TARGET_ROOT}/cache/modelscope/hub/models/iic"
-copy_tree "${VOICE_ASR_MODEL_REAL}" \
-  "${TARGET_ROOT}/cache/modelscope/hub/models/iic/$(basename "${VOICE_ASR_MODEL_REAL}")"
-
-if [[ -d "${VOICEPRINT_REAL}" ]]; then
-  mkdir -p "${TARGET_ROOT}/cache/huggingface/hub"
-  copy_tree "${VOICEPRINT_REAL}" "${TARGET_ROOT}/cache/huggingface/hub/$(basename "${VOICEPRINT_REAL}")"
-fi
-
-cat > "${TARGET_ROOT}/bundle.env.example" <<EOF
-# Fill these in on the target machine before running ./run.sh
-export VOICE_PYTHON="/path/to/voice/env/bin/python"
-export LLM_PYTHON="/path/to/llm/env/bin/python"
-export OPENAI_API_KEY="sk-your-deepseek-api-key"
-
-# Optional overrides if the target machine needs custom network settings.
-export UNITREE_NETWORK_INTERFACE="${UNITREE_NETWORK_INTERFACE:-enp8s0}"
-export UNITREE_DOMAIN_ID="${UNITREE_DOMAIN_ID:-0}"
-export DASHSCOPE_API_KEY=""
-EOF
-
-cat > "${TARGET_ROOT}/bundle.env" <<EOF
-export SURF_LLM_BUNDLE_ROOT="${TARGET_ROOT}"
-export SURF_ROOT="${TARGET_ROOT}/deps/SURF2026_VoiceModule-main"
-export LLM_ROOT="${TARGET_ROOT}/deps/qwen_ros_node_edg_tts"
-export LLM_MODEL_PATH="${TARGET_ROOT}/models/Qwen3.5-0.8B/model"
-export VOICE_ASR_MODEL="${TARGET_ROOT}/cache/modelscope/hub/models/iic/$(basename "${VOICE_ASR_MODEL_REAL}")"
-export VOICE_VOICEPRINT_MODEL="pyannote/wespeaker-voxceleb-resnet34-LM"
-export VOICE_PYTHON="\${VOICE_PYTHON:-}"
-export LLM_PYTHON="\${LLM_PYTHON:-}"
-export MODELSCOPE_CACHE="${TARGET_ROOT}/cache/modelscope"
-export HF_HOME="${TARGET_ROOT}/cache/huggingface"
-export HF_HUB_CACHE="${TARGET_ROOT}/cache/huggingface/hub"
-export LLM_ACTION_PYTHON="\${LLM_ACTION_PYTHON:-\${LLM_PYTHON:-\${VOICE_PYTHON:-python3}}}"
-export LLM_ACTION_SCRIPT="${TARGET_ROOT}/deps/unitree_g1_action_classifier_package/arm_action_classifier/arm_action_classifier.py"
-export LLM_ACTION_RUNNER="${TARGET_ROOT}/deps/unitree_g1_action_classifier_package/unitree_sdk2/build/bin/g1_arm_action_example"
-export LLM_RUNTIME_DIR="${TARGET_ROOT}/workspace/surf_llm_workspace/runtime"
-export OPENAI_API_KEY="\${OPENAI_API_KEY:-}"
-export DASHSCOPE_API_KEY="\${DASHSCOPE_API_KEY:-}"
-EOF
-
-cat > "${TARGET_ROOT}/run.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${ROOT}/bundle.env"
-if [[ -z "${VOICE_PYTHON:-}" || ! -x "${VOICE_PYTHON}" ]]; then
-  echo "VOICE_PYTHON is not set to an executable path." >&2
-  echo "Copy bundle.env.example to bundle.env and set VOICE_PYTHON." >&2
-  exit 1
-fi
-if [[ -z "${LLM_PYTHON:-}" || ! -x "${LLM_PYTHON}" ]]; then
-  echo "LLM_PYTHON is not set to an executable path." >&2
-  echo "Copy bundle.env.example to bundle.env and set LLM_PYTHON." >&2
-  exit 1
-fi
-cd "${ROOT}/workspace/surf_llm_workspace"
-exec ./scripts/run_pipeline.sh "$@"
-EOF
-chmod +x "${TARGET_ROOT}/run.sh"
-
-cat > "${TARGET_ROOT}/check.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${ROOT}/bundle.env"
-test -d "${SURF_ROOT}"
-test -d "${LLM_ROOT}"
-test -d "${LLM_MODEL_PATH}"
-test -d "${VOICE_ASR_MODEL}"
-test -x "${LLM_ACTION_RUNNER}"
-echo "Bundle layout looks complete."
-EOF
-chmod +x "${TARGET_ROOT}/check.sh"
+(
+  cd "${TARGET_ROOT}"
+  find source -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+) > "${TARGET_ROOT}/MANIFEST.sha256"
 
 cat > "${TARGET_ROOT}/README.md" <<'EOF'
-# SURF LLM Release Bundle
+# Source release bundle
 
-This bundle is relocatable. The code and model directories are included; the
-voice and LLM Python environments are still external.
-
-Before running, edit `bundle.env` and set:
+This archive contains an auditable snapshot of the repository's public,
+Git-tracked source files. Verify it with:
 
 ```bash
-export VOICE_PYTHON=/path/to/voice/env/bin/python
-export LLM_PYTHON=/path/to/llm/env/bin/python
+sha256sum --check MANIFEST.sha256
 ```
 
-Then run:
+Downloaded models, Python environments, caches, runtime/session data, local
+configuration, API keys, logs, and internal development archives are not
+included. Follow `source/README.md` and the focused setup documentation to
+install dependencies and models on the target machine.
 
-```bash
-./run.sh
-```
-
-Optional verification:
-
-```bash
-./check.sh
-```
+The optional XJTLU RAG source and its approved knowledge databases may be
+present, but RAG is not the default reply backend.
 EOF
 
 if [[ "${MAKE_TAR}" == "1" ]]; then
-  tarball="${TARGET_ROOT}.tar"
-  tar -cf "${tarball}" -C "${OUTPUT_DIR}" "${NAME}"
-  echo "Created bundle: ${TARGET_ROOT}"
-  echo "Created tarball: ${tarball}"
+  tar -cf "${TARBALL}" -C "${OUTPUT_DIR_REAL}" "${NAME}"
+  echo "Created source bundle: ${TARGET_ROOT}"
+  echo "Created tarball: ${TARBALL}"
 else
-  echo "Created bundle: ${TARGET_ROOT}"
+  echo "Created source bundle: ${TARGET_ROOT}"
 fi
