@@ -67,7 +67,7 @@ def _run_loco(loco_client: Path, network_interface: str, *args: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Safe G1 robot skill command wrapper.")
     parser.add_argument("--command", required=True, choices=sorted(COMMANDS))
-    parser.add_argument("--network_interface", default=os.environ.get("UNITREE_NETWORK_INTERFACE", "enp8s0"))
+    parser.add_argument("--network_interface", default=os.environ.get("UNITREE_NETWORK_INTERFACE", ""))
     parser.add_argument("--execute", default=os.environ.get("LLM_ROBOT_SKILL_EXECUTE", "1"))
     parser.add_argument("--loco_client", default=str(DEFAULT_LOCO_CLIENT))
     args = parser.parse_args()
@@ -76,6 +76,17 @@ def main() -> int:
     command = args.command
     spec = COMMANDS[command]
     loco_client = Path(args.loco_client)
+    requires_network = execute and (
+        all(key in spec for key in ("vx", "vy", "yaw", "duration"))
+        or spec.get("api") != "dry_run_only"
+    )
+    if requires_network and not str(args.network_interface).strip():
+        print(
+            "robot_skill failed error=missing_network_interface "
+            "set UNITREE_NETWORK_INTERFACE or pass --network_interface",
+            file=sys.stderr,
+        )
+        return 2
 
     if all(key in spec for key in ("vx", "vy", "yaw", "duration")):
         vx, vy, yaw, duration = _safe_motion_params(spec)

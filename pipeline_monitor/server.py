@@ -701,6 +701,15 @@ def pipeline_status(
     relay_checker: Any = robot_relay_status,
     mic_checker: Any = robot_mic_status,
 ) -> dict[str, Any]:
+    env = {**PIPELINE_ENV_DEFAULTS, **os.environ}
+    unitree_enabled = str(env.get("UNITREE_ENABLE", "1")).strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    relay_required = unitree_enabled and str(env.get("UNITREE_BACKEND", "relay")).strip().lower() == "relay"
+    mic_required = str(env.get("VOICE_AUDIO_SOURCE", "robot")).strip().lower() == "robot"
     services: dict[str, dict[str, Any]] = {}
     components: dict[str, dict[str, Any]] = {}
     active_count = 0
@@ -727,37 +736,46 @@ def pipeline_status(
             "hint": f"本机服务未运行：{service}",
         }
 
-    relay = relay_checker()
-    components["robot_relay"] = {
-        "label": "机器人中转服务",
-        "ready": bool(relay.get("ready")),
-        "state": str(relay.get("state", "unknown")),
-        "endpoint": str(relay.get("endpoint", "")),
-        "hint": str(relay.get("hint", "")),
-        "elapsed_ms": relay.get("elapsed_ms", ""),
-    }
-    mic = mic_checker()
-    mic_mode = str(mic.get("processing_mode", ""))
-    mic_channels = str(mic.get("source_channels", ""))
-    mic_channel_map = str(mic.get("channel_map", ""))
-    mic_detail_parts = []
-    if mic_mode:
-        mic_detail_parts.append(mic_mode)
-    if mic_channels:
-        mic_detail_parts.append(f"{mic_channels}ch")
-    if mic_channel_map:
-        mic_detail_parts.append(f"channels {mic_channel_map}")
-    components["robot_mic"] = {
-        "label": "机器人外置麦克风推流",
-        "ready": bool(mic.get("ready")),
-        "state": str(mic.get("state", "unknown")),
-        "endpoint": str(mic.get("endpoint", "")),
-        "hint": str(mic.get("hint", "")),
-        "elapsed_ms": mic.get("elapsed_ms", ""),
-        "detail": " | ".join(mic_detail_parts),
-    }
+    relay: dict[str, Any] = {}
+    if relay_required:
+        relay = relay_checker()
+        components["robot_relay"] = {
+            "label": "机器人中转服务",
+            "ready": bool(relay.get("ready")),
+            "state": str(relay.get("state", "unknown")),
+            "endpoint": str(relay.get("endpoint", "")),
+            "hint": str(relay.get("hint", "")),
+            "elapsed_ms": relay.get("elapsed_ms", ""),
+        }
 
-    if active_count == len(PIPELINE_SERVICES) and relay.get("ready") and mic.get("ready"):
+    mic: dict[str, Any] = {}
+    if mic_required:
+        mic = mic_checker()
+        mic_mode = str(mic.get("processing_mode", ""))
+        mic_channels = str(mic.get("source_channels", ""))
+        mic_channel_map = str(mic.get("channel_map", ""))
+        mic_detail_parts = []
+        if mic_mode:
+            mic_detail_parts.append(mic_mode)
+        if mic_channels:
+            mic_detail_parts.append(f"{mic_channels}ch")
+        if mic_channel_map:
+            mic_detail_parts.append(f"channels {mic_channel_map}")
+        components["robot_mic"] = {
+            "label": "机器人外置麦克风推流",
+            "ready": bool(mic.get("ready")),
+            "state": str(mic.get("state", "unknown")),
+            "endpoint": str(mic.get("endpoint", "")),
+            "hint": str(mic.get("hint", "")),
+            "elapsed_ms": mic.get("elapsed_ms", ""),
+            "detail": " | ".join(mic_detail_parts),
+        }
+
+    required_components_ready = (
+        (not relay_required or bool(relay.get("ready")))
+        and (not mic_required or bool(mic.get("ready")))
+    )
+    if active_count == len(PIPELINE_SERVICES) and required_components_ready:
         state = "running"
     elif active_count == 0:
         state = "stopped"

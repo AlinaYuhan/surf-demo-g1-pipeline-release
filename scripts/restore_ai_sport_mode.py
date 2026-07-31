@@ -56,7 +56,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--network_interface",
-        default=os.environ.get("UNITREE_NETWORK_INTERFACE", "enp8s0"),
+        default=os.environ.get("UNITREE_NETWORK_INTERFACE", ""),
         help="DDS network interface, e.g. enp8s0 or eth1.",
     )
     parser.add_argument(
@@ -78,6 +78,12 @@ def main() -> int:
         help="If SelectMode(ai_sport) fails, try robot_state ServiceSwitch(ai_sport, True).",
     )
     args = parser.parse_args()
+
+    if not str(args.network_interface).strip():
+        parser.error(
+            "missing robot network interface; set UNITREE_NETWORK_INTERFACE "
+            "or pass --network_interface"
+        )
 
     _load_unitree_sdk()
     from unitree_sdk2py.comm.motion_switcher.motion_switcher_client import MotionSwitcherClient

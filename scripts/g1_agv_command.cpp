@@ -42,12 +42,21 @@ float parse_float_arg(int argc, char** argv, const std::string& key, float fallb
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string network_interface = parse_string_arg(argc, argv, "network_interface", "enp8s0");
+  const char* env_iface = std::getenv("UNITREE_NETWORK_INTERFACE");
+  const std::string iface = parse_string_arg(
+      argc, argv, "network_interface", env_iface == nullptr ? "" : env_iface);
   const float vx = parse_float_arg(argc, argv, "vx", 0.0f);
   const float vyaw = parse_float_arg(argc, argv, "vyaw", 0.0f);
   const float duration = parse_float_arg(argc, argv, "duration", 0.3f);
 
-  unitree::robot::ChannelFactory::Instance()->Init(0, network_interface);
+  if (iface.empty()) {
+    std::cerr << "missing robot network interface; set UNITREE_NETWORK_INTERFACE "
+                 "or pass --network_interface=<name>"
+              << std::endl;
+    return 2;
+  }
+
+  unitree::robot::ChannelFactory::Instance()->Init(0, iface);
 
   unitree::robot::g1::AgvClient client;
   client.SetTimeout(3.0f);

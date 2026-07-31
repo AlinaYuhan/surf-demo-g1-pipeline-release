@@ -62,7 +62,9 @@ void print_state(unitree::robot::g1::LocoClient &client, const std::string &labe
 }  // namespace
 
 int main(int argc, char const *argv[]) {
-  std::string iface = arg_string(argc, argv, "network_interface", "enp8s0");
+  const char* env_iface = std::getenv("UNITREE_NETWORK_INTERFACE");
+  std::string iface = arg_string(
+      argc, argv, "network_interface", env_iface == nullptr ? "" : env_iface);
   float vx = std::clamp(arg_float(argc, argv, "vx", 0.08f), -0.2f, 0.2f);
   float vy = std::clamp(arg_float(argc, argv, "vy", 0.0f), -0.1f, 0.1f);
   float yaw = std::clamp(arg_float(argc, argv, "yaw", 0.0f), -0.4f, 0.4f);
@@ -70,6 +72,13 @@ int main(int argc, char const *argv[]) {
   int fsm_id_arg = static_cast<int>(arg_float(argc, argv, "set_fsm_id", -1.0f));
   bool start = arg_bool(argc, argv, "start", false);
   bool switch_walkrun = arg_bool(argc, argv, "switch_walkrun", true);
+
+  if (iface.empty()) {
+    std::cerr << "missing robot network interface; set UNITREE_NETWORK_INTERFACE "
+                 "or pass --network_interface=<name>"
+              << std::endl;
+    return 2;
+  }
 
   std::cout << "init channel iface=" << iface << std::endl;
   unitree::robot::ChannelFactory::Instance()->Init(0, iface);

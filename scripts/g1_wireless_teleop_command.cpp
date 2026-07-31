@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -35,13 +36,22 @@ std::string arg_string(int argc, char const *argv[], const std::string &key, con
 }  // namespace
 
 int main(int argc, char const *argv[]) {
-  std::string iface = arg_string(argc, argv, "network_interface", "enp8s0");
+  const char* env_iface = std::getenv("UNITREE_NETWORK_INTERFACE");
+  std::string iface = arg_string(
+      argc, argv, "network_interface", env_iface == nullptr ? "" : env_iface);
   float lx = std::clamp(arg_float(argc, argv, "lx", 0.0f), -0.4f, 0.4f);
   float ly = std::clamp(arg_float(argc, argv, "ly", 0.0f), -0.4f, 0.4f);
   float rx = std::clamp(arg_float(argc, argv, "rx", 0.0f), -0.4f, 0.4f);
   float ry = std::clamp(arg_float(argc, argv, "ry", 0.0f), -0.4f, 0.4f);
   float duration = std::clamp(arg_float(argc, argv, "duration", 0.3f), 0.0f, 0.8f);
   float hz = std::clamp(arg_float(argc, argv, "hz", 50.0f), 10.0f, 100.0f);
+
+  if (iface.empty()) {
+    std::cerr << "missing robot network interface; set UNITREE_NETWORK_INTERFACE "
+                 "or pass --network_interface=<name>"
+              << std::endl;
+    return 2;
+  }
 
   std::cout << "init channel iface=" << iface << std::endl;
   unitree::robot::ChannelFactory::Instance()->Init(0, iface);

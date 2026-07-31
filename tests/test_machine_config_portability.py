@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import project_config
 from pipeline_monitor import server
 
@@ -148,6 +150,77 @@ def test_direct_relay_python_and_action_cli_fail_before_sdk_or_network_when_conf
     )
     assert action.returncode == 2
     assert "ROBOT_RELAY_HOST" in action.stderr
+
+
+@pytest.mark.parametrize(
+    ("audio_source", "unitree_enable", "unitree_backend", "expected_checks"),
+    [
+        ("local", "0", "relay", []),
+        ("local", "1", "relay", ["relay"]),
+        ("robot", "0", "relay", ["mic"]),
+        ("robot", "1", "direct", ["mic"]),
+    ],
+)
+def test_pipeline_status_checks_only_components_required_by_runtime_mode(
+    monkeypatch, audio_source, unitree_enable, unitree_backend, expected_checks
+):
+    monkeypatch.setenv("VOICE_AUDIO_SOURCE", audio_source)
+    monkeypatch.setenv("UNITREE_ENABLE", unitree_enable)
+    monkeypatch.setenv("UNITREE_BACKEND", unitree_backend)
+    checks = []
+
+    def active_service(_command, **_kwargs):
+        return type("Result", (), {"returncode": 0, "stdout": "active\n", "stderr": ""})()
+
+    def relay_checker():
+        checks.append("relay")
+        return {"ready": True, "state": "ready"}
+
+    def mic_checker():
+        checks.append("mic")
+        return {"ready": True, "state": "ready"}
+
+    status = server.pipeline_status(
+        command_runner=active_service,
+        relay_checker=relay_checker,
+        mic_checker=mic_checker,
+    )
+
+    assert checks == expected_checks
+    assert status["state"] == "running"
+
+
+@pytest.mark.parametrize(
+    ("script", "extra_args"),
+    [
+        ("g1_robot_skill_command.py", ["--command", "forward_step", "--loco_client", "/bin/true"]),
+        ("restore_ai_sport_mode.py", []),
+    ],
+)
+def test_direct_robot_clis_require_explicit_network_interface_before_client_setup(script, extra_args):
+    env = os.environ.copy()
+    env.pop("UNITREE_NETWORK_INTERFACE", None)
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / script), *extra_args],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 2
+    assert "UNITREE_NETWORK_INTERFACE" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "source_name",
+    ["g1_agv_command.cpp", "g1_loco_walkrun_command.cpp", "g1_wireless_teleop_command.cpp"],
+)
+def test_first_party_cpp_robot_tools_have_no_machine_interface_default(source_name):
+    source = (ROOT / "scripts" / source_name).read_text(encoding="utf-8")
+    assert '"enp8s0"' not in source
+    assert "UNITREE_NETWORK_INTERFACE" in source
+    assert source.index("if (iface.empty())") < source.index("ChannelFactory::Instance()->Init")
 
 
 def test_local_voice_mode_does_not_require_robot_destination(monkeypatch):
