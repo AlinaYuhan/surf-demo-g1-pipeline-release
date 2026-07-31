@@ -112,18 +112,38 @@ class DefaultEnvShellTests(unittest.TestCase):
 
     def test_rag_preflight_dependencies_are_guarded_by_backend(self):
         script = (ROOT / "scripts" / "check_pipeline.sh").read_text(encoding="utf-8")
-        guarded = re.search(
-            r'if \[\[ "\$\{LLM_REPLY_BACKEND\}" == "rag" \]\]; then(?P<body>.*?)\nfi',
-            script,
-            re.DOTALL,
-        )
+        rag_guard_depth = 0
+        guarded_dependencies = []
 
-        self.assertIsNotNone(guarded)
-        rag_checks = guarded.group("body")
-        self.assertIn('xjtlu-rag-system/app.py', rag_checks)
-        self.assertIn('xjtlu-rag-system/rag_index.db', rag_checks)
-        self.assertIn('xjtlu-rag-system/xjtlu_knowledge.db', rag_checks)
-        self.assertIn('test -x "${OLLAMA_BIN}"', rag_checks)
+        for line_number, line in enumerate(script.splitlines(), start=1):
+            stripped = line.strip()
+            if stripped == 'if [[ "${LLM_REPLY_BACKEND}" == "rag" ]]; then':
+                rag_guard_depth += 1
+                continue
+            if stripped == "fi" and rag_guard_depth:
+                rag_guard_depth -= 1
+                continue
+            if "xjtlu-rag-system/" in stripped or 'test -x "${OLLAMA_BIN}"' in stripped:
+                self.assertGreater(
+                    rag_guard_depth,
+                    0,
+                    f"RAG dependency outside backend guard at line {line_number}: {stripped}",
+                )
+                guarded_dependencies.append(stripped)
+
+        joined_dependencies = "\n".join(guarded_dependencies)
+        for dependency in (
+            "app.py",
+            "chat_engine.py",
+            "rag_config.py",
+            "ollama_client.py",
+            "vector_store.py",
+            "memory_store.py",
+            "rag_index.db",
+            "xjtlu_knowledge.db",
+            "OLLAMA_BIN",
+        ):
+            self.assertIn(dependency, joined_dependencies)
 
 
 if __name__ == "__main__":

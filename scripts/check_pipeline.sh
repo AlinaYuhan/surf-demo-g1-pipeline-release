@@ -52,6 +52,17 @@ for path in (
     Path("pipeline_log/pipeline_logger.py"),
     Path("wav.py"),
     Path("surf_ros_bridge.py"),
+):
+    ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    print(f"syntax ok: {path}")
+PY
+
+if [[ "${LLM_REPLY_BACKEND}" == "rag" ]]; then
+  "${LLM_PYTHON}" - <<'PY'
+import ast
+from pathlib import Path
+
+for path in (
     Path("xjtlu-rag-system/app.py"),
     Path("xjtlu-rag-system/chat_engine.py"),
     Path("xjtlu-rag-system/rag_config.py"),
@@ -62,6 +73,7 @@ for path in (
     ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     print(f"syntax ok: {path}")
 PY
+fi
 
 "${VOICE_PYTHON}" - <<'PY'
 import ast
