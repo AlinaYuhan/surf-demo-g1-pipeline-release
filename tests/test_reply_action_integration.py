@@ -244,12 +244,16 @@ class ReplyActionIntegrationTests(unittest.TestCase):
                 except (TypeError, ValueError):
                     return default
 
-            def _execute_classified_action(self, classification):
-                calls["execute"].append(classification["action_id"])
+            def _execute_classified_action(self, classification, action_generation):
+                calls["execute"].append((classification["action_id"], action_generation))
                 return {"executed": True, "reason": "test"}
 
-            def _log_action_result(self, classification, execution, started_at, reply):
-                calls["log"].append((classification["action_id"], execution["executed"]))
+            def _log_action_result(
+                self, classification, execution, started_at, reply, action_generation
+            ):
+                calls["log"].append(
+                    (classification["action_id"], execution["executed"], action_generation)
+                )
 
         config = SimpleNamespace(
             action_frequent_reply_enable=True,
@@ -266,8 +270,8 @@ class ReplyActionIntegrationTests(unittest.TestCase):
             )
 
         self.assertEqual(calls["classify"], [("西交利物浦大学位于苏州。", "keyword")])
-        self.assertEqual(calls["execute"], [17])
-        self.assertEqual(calls["log"], [(17, True)])
+        self.assertEqual(calls["execute"], [(17, None)])
+        self.assertEqual(calls["log"], [(17, True, None)])
 
     def test_disabled_switch_keeps_deepseek_priority_and_skips_classifiers(self):
         calls = {"classify": 0, "execute": []}
@@ -280,11 +284,13 @@ class ReplyActionIntegrationTests(unittest.TestCase):
                 calls["classify"] += 1
                 return None
 
-            def _execute_classified_action(self, classification):
-                calls["execute"].append(classification["action_id"])
+            def _execute_classified_action(self, classification, action_generation):
+                calls["execute"].append((classification["action_id"], action_generation))
                 return {"executed": False, "reason": "test"}
 
-            def _log_action_result(self, *args):
+            def _log_action_result(
+                self, classification, execution, started_at, reply, action_generation
+            ):
                 return None
 
         config = SimpleNamespace(
@@ -302,7 +308,7 @@ class ReplyActionIntegrationTests(unittest.TestCase):
             )
 
         self.assertEqual(calls["classify"], 0)
-        self.assertEqual(calls["execute"], [17])
+        self.assertEqual(calls["execute"], [(17, None)])
 
     def test_reply_action_uses_one_policy_decision_and_one_target_execution(self):
         section = method_source(
