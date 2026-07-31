@@ -26,6 +26,10 @@ beamforming/outputs/
 # Local project notes and planning records
 docs/work_logs/
 docs/plans/
+docs/work_reports/
+docs/superpowers/
+**/docs/plans/
+*.code-workspace
 
 # Local chat memory
 xjtlu-rag-system/chat_memory.db

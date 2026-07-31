@@ -21,12 +21,13 @@
 ## 离线验证
 
 ```bash
-cd ~/surf_sync/surf-demo-g1-pipeline-release
-PY=/home/alina/miniconda3/envs/voice312/bin/python
-REF=research/beamforming/teacher_reference_20260630
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+VOICE_PYTHON="${VOICE_PYTHON:-python3}"
+REF="$REPO_ROOT/research/beamforming/teacher_reference_20260630"
 
-$PY tools/beamforming/verify_teacher_reference.py "$REF"
-$PY tools/beamforming/apply_fixed_beamformer_wav.py \
+"$VOICE_PYTHON" "$REPO_ROOT/tools/beamforming/verify_teacher_reference.py" "$REF"
+"$VOICE_PYTHON" "$REPO_ROOT/tools/beamforming/apply_fixed_beamformer_wav.py" \
   "$REF/mixture.wav" \
   "$REF/DCF_Targ7_runtime.npz" \
   "$REF/python_out0.wav"
@@ -50,7 +51,7 @@ python3 tools/beamforming/capture_multichannel_alsa.py \
 将 WAV 拿回电脑后运行：
 
 ```bash
-$PY tools/beamforming/analyze_multichannel_wav.py /path/to/bothlent_raw8.wav
+"$VOICE_PYTHON" "$REPO_ROOT/tools/beamforming/analyze_multichannel_wav.py" /path/to/bothlent_raw8.wav
 ```
 
 逐个靠近四只物理麦克风说话或轻触，核对前 4 路均有有效信号，并记录它们的物理顺序。当前默认 `channel_indices=(0,1,2,3)`；若实测不符，使用机器本地配置显式覆盖，不修改算法核心。
