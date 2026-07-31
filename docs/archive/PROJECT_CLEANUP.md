@@ -29,8 +29,8 @@ surf_ros_bridge.py
 surf_voice_runtime.py
 unitree_audio_player.py
 wav.py
-../../README.md
-../../PACKAGING.md
+README.md
+PACKAGING.md
 RAG_ACTION_INTEGRATION.md
 ```
 
