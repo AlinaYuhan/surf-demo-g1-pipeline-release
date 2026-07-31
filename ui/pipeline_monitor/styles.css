@@ -89,7 +89,9 @@ h1 {
 .status-strip {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
+  width: 100%;
 }
 
 .control-deck {
@@ -127,6 +129,10 @@ h1 {
 .pipeline-actions,
 .session-actions {
   flex: 0 0 auto;
+}
+
+.status-strip .pipeline-actions {
+  margin-left: auto;
 }
 
 #pipelineStatus {
@@ -579,6 +585,10 @@ button:disabled {
   .control-deck {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+
+  .status-strip .pipeline-actions {
+    margin-left: 0;
   }
 
   .control-cluster {
