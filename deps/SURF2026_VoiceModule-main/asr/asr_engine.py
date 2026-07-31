@@ -38,14 +38,26 @@ class ASREngine:
             }
         with self._suppress_model_output():
             self._model = AutoModel(**model_kwargs)
+        self._publication_lock = threading.RLock()
         self._lock = threading.Lock()
         self._recording = False
         self._buffer = b""
+        self._recording_epoch = 0
 
-    def start_recording(self, initial_audio: bytes = b"") -> None:
-        with self._lock:
-            self._recording = True
-            self._buffer = initial_audio
+    def start_recording(self, initial_audio: bytes = b"") -> int:
+        with self._publication_lock:
+            with self._lock:
+                self._recording_epoch += 1
+                self._recording = True
+                self._buffer = initial_audio
+                return self._recording_epoch
+
+    def cancel_recording(self) -> None:
+        with self._publication_lock:
+            with self._lock:
+                self._recording_epoch += 1
+                self._recording = False
+                self._buffer = b""
 
     def push_audio(self, pcm: bytes) -> None:
         with self._lock:
@@ -53,22 +65,30 @@ class ASREngine:
                 return
             self._buffer += pcm
 
-    def stop_and_transcribe(self) -> None:
+    def stop_and_transcribe(self, expected_epoch: int | None = None) -> bool:
         with self._lock:
             if not self._recording:
-                return
+                return False
+            if expected_epoch is not None and expected_epoch != self._recording_epoch:
+                return False
             self._recording = False
             audio_data = self._buffer
             self._buffer = b""
+            recording_epoch = self._recording_epoch
 
         if not audio_data:
-            return
+            return True
 
         audio = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
         with self._suppress_model_output():
             result = self._model.generate(input=audio, batch_size_s=300)
         text = result[0].get("text", "").strip() if result else ""
-        self._on_result(text)
+        with self._publication_lock:
+            with self._lock:
+                if recording_epoch != self._recording_epoch:
+                    return True
+            self._on_result(text)
+        return True
 
     @staticmethod
     @contextlib.contextmanager

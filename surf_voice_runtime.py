@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import socket
 import threading
@@ -30,6 +31,17 @@ from turn_detection.runtime_shadow import TurnShadowRuntime
 
 logging.basicConfig(level=logging.INFO, format="[surf_voice_runtime] %(message)s")
 logger = logging.getLogger(__name__)
+CLOSED_SESSION_TOMBSTONE_LIMIT = 128
+
+
+def _event_timestamp(value, fallback: float) -> float:
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if not math.isfinite(timestamp) or timestamp <= 0.0:
+        return fallback
+    return timestamp
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -82,12 +94,13 @@ class SurfVoiceRuntime:
         self._started_at = time.time()
         self._recording = False
         self._recording_lock = threading.Lock()
+        self._asr_recording_epoch: int | None = None
         runtime_dir = Path(os.environ.get("LLM_RUNTIME_DIR", "runtime"))
         self._interrupt_control = InterruptControl(runtime_dir)
         self._last_session_command_request_id = str(
             self._interrupt_control.read_session_command().get("request_id", "")
         )
-        self._wake_dispatch_lock = threading.Lock()
+        self._session_lifecycle_lock = threading.Lock()
         self._turn_mode_store = TurnModeStore(runtime_dir / "turn_mode.json")
         self._first_turn_mode_store = FirstTurnModeStore(runtime_dir / "first_turn_mode.json")
         self._first_turn_compat_silence_sec = _env_float(
@@ -139,6 +152,8 @@ class SurfVoiceRuntime:
             os.environ.get("LLM_FOLLOWUP_CONTROL_FILE", "runtime/followup_control.json")
         )
         self._followup_control_mtime = 0.0
+        self._followup_close_watermark = self._started_at
+        self._closed_session_ids: dict[str, None] = {}
         self._followup_guard_until = 0.0
         self._tts_guard_enable = _env_bool("LLM_TTS_GUARD_ENABLE", True)
         self._tts_guard_path = Path(os.environ.get("LLM_TTS_GUARD_FILE", "runtime/tts_guard.json"))
@@ -177,7 +192,7 @@ class SurfVoiceRuntime:
             time.sleep(max(0.01, CONFIG.followup_control_poll_sec))
 
     def _submit_wake_detection(self, word: str) -> None:
-        with self._wake_dispatch_lock:
+        with self._session_lifecycle_lock:
             self._dispatch.on_detection(word)
 
     def _poll_session_command(self) -> None:
@@ -186,8 +201,60 @@ class SurfVoiceRuntime:
         if not request_id or request_id == self._last_session_command_request_id:
             return
         self._last_session_command_request_id = request_id
-        if command.get("command") == "simulate_wake":
+        command_name = command.get("command")
+        if command_name == "simulate_wake":
             self._submit_wake_detection(str(command.get("wake_word", "你好小浦")))
+        elif command_name in ("end_session", "silent_end"):
+            self._handle_session_close(
+                command_name,
+                _event_timestamp(command.get("updated_at"), time.time()),
+                session_id=str(command.get("session_id", "")).strip(),
+            )
+
+    def _handle_session_close(
+        self,
+        reason: str,
+        updated_at: float | None = None,
+        *,
+        session_id: str = "",
+    ) -> None:
+        with self._session_lifecycle_lock:
+            close_timestamp = _event_timestamp(updated_at, time.time())
+            started_at = getattr(self, "_started_at", 0.0)
+            self._followup_close_watermark = max(
+                getattr(self, "_followup_close_watermark", started_at),
+                close_timestamp,
+            )
+            self._tombstone_closed_sessions(
+                session_id,
+                getattr(self, "_session_id", ""),
+                getattr(self, "_followup_session_id", ""),
+            )
+            with self._recording_lock:
+                self._recording = False
+                self._asr_deadline = 0.0
+                self._asr_audio_frames = []
+                self._asr_recording_epoch = None
+            self._asr.cancel_recording()
+            self._close_followup_window(reason)
+            self._session_id = ""
+            self._session_log = None
+            self._mirror_turn_shadow("close")
+            self._turn_shadow = None
+
+    def _tombstone_closed_sessions(self, *session_ids: str) -> None:
+        tombstones = getattr(self, "_closed_session_ids", None)
+        if tombstones is None:
+            tombstones = {}
+            self._closed_session_ids = tombstones
+        for value in session_ids:
+            session_id = str(value).strip()
+            if not session_id:
+                continue
+            tombstones.pop(session_id, None)
+            tombstones[session_id] = None
+        while len(tombstones) > CLOSED_SESSION_TOMBSTONE_LIMIT:
+            del tombstones[next(iter(tombstones))]
 
     def _on_wake(self, word: str) -> None:
         self._close_followup_window("new_wake")
@@ -225,8 +292,10 @@ class SurfVoiceRuntime:
             )
         with self._recording_lock:
             self._asr_audio_frames = asr_preroll
+            self._asr_recording_epoch = self._asr.start_recording(
+                initial_audio=b"".join(asr_preroll)
+            )
             self._recording = True
-        self._asr.start_recording(initial_audio=b"".join(asr_preroll))
         self._vprint.start_capture(initial_audio=b"".join(bus_snapshot))
         self._asr_t0 = time.monotonic()
         self._arm_asr_max_recording_deadline()
@@ -332,11 +401,16 @@ class SurfVoiceRuntime:
                 return False
             self._recording = False
             self._asr_deadline = 0.0
+            recording_epoch = getattr(self, "_asr_recording_epoch", None)
+            self._asr_recording_epoch = None
         logger.info("asr recording finalized: reason=%s", reason)
         if self._session_log:
             self._session_log.record("asr_recording_finalized", reason=reason)
         self._save_audio()
-        self._asr.stop_and_transcribe()
+        if recording_epoch is None:
+            self._asr.stop_and_transcribe()
+        else:
+            self._asr.stop_and_transcribe(expected_epoch=recording_epoch)
         return True
 
     def _asr_preroll(self, bus_snapshot: list[bytes]) -> list[bytes]:
@@ -364,29 +438,46 @@ class SurfVoiceRuntime:
             return
 
         command = str(payload.get("command", "")).strip().lower()
-        if command == "open":
-            if not self._followup_enable:
-                return
-            session_id = str(payload.get("session_id", "")).strip()
-            if not session_id:
-                logger.warning("follow-up control open missing session_id")
-                return
-            try:
-                updated_at = float(payload.get("updated_at", 0.0))
-            except (TypeError, ValueError):
-                updated_at = 0.0
-            if updated_at and updated_at < self._started_at:
-                logger.info("ignoring stale follow-up control for session=%s", session_id)
-                return
-            try:
-                timeout_sec = float(payload.get("timeout_sec", _env_float("LLM_FOLLOWUP_TIMEOUT_SEC", 20.0)))
-            except (TypeError, ValueError):
-                timeout_sec = _env_float("LLM_FOLLOWUP_TIMEOUT_SEC", 20.0)
-            reason = str(payload.get("reason", "control")).strip() or "control"
-            self._open_followup_window(session_id, timeout_sec, reason)
-        elif command == "close":
-            reason = str(payload.get("reason", "control")).strip() or "control"
-            self._close_followup_window(reason)
+        if command not in ("open", "close"):
+            return
+        with self._session_lifecycle_lock:
+            if command == "open":
+                if not self._followup_enable:
+                    return
+                session_id = str(payload.get("session_id", "")).strip()
+                if not session_id:
+                    logger.warning("follow-up control open missing session_id")
+                    return
+                if session_id in getattr(self, "_closed_session_ids", {}):
+                    logger.info("ignoring follow-up control for closed session=%s", session_id)
+                    return
+                updated_at = _event_timestamp(payload.get("updated_at"), 0.0)
+                close_watermark = max(
+                    getattr(self, "_followup_close_watermark", self._started_at),
+                    self._started_at,
+                )
+                if updated_at <= close_watermark:
+                    logger.info("ignoring stale follow-up control for session=%s", session_id)
+                    return
+                try:
+                    timeout_sec = float(
+                        payload.get(
+                            "timeout_sec",
+                            _env_float("LLM_FOLLOWUP_TIMEOUT_SEC", 20.0),
+                        )
+                    )
+                except (TypeError, ValueError):
+                    timeout_sec = _env_float("LLM_FOLLOWUP_TIMEOUT_SEC", 20.0)
+                reason = str(payload.get("reason", "control")).strip() or "control"
+                self._open_followup_window(session_id, timeout_sec, reason)
+            else:
+                updated_at = _event_timestamp(payload.get("updated_at"), time.time())
+                self._followup_close_watermark = max(
+                    getattr(self, "_followup_close_watermark", self._started_at),
+                    updated_at,
+                )
+                reason = str(payload.get("reason", "control")).strip() or "control"
+                self._close_followup_window(reason)
 
     def _open_followup_window(self, session_id: str, timeout_sec: float, reason: str) -> None:
         if timeout_sec <= 0:
@@ -430,33 +521,36 @@ class SurfVoiceRuntime:
         return False
 
     def _start_followup_recording(self) -> None:
-        if not self._followup_session_id:
-            return
-        if self._is_tts_guard_active():
-            logger.info("follow-up recording suppressed by tts guard")
-            return
-        self._session_id = self._followup_session_id
-        self._close_followup_window("followup_asr_started")
-        self._session_id = self._session_id or self._followup_session_id
-        self._session_log = self._pipeline_logger.attach_session(self._session_id)
-        bus_snapshot = self._bus.get_buffer()
-        asr_preroll = self._asr_preroll(bus_snapshot)
-        self._endpoint_controller.begin(self._turn_mode_store.read())
-        with self._recording_lock:
-            self._asr_audio_frames = asr_preroll
-            self._recording = True
-        self._asr.start_recording(initial_audio=b"".join(asr_preroll))
-        self._vprint.start_capture(initial_audio=b"".join(bus_snapshot))
-        self._asr_t0 = time.monotonic()
-        self._arm_asr_max_recording_deadline()
-        self._vad_holdoff_until = time.monotonic() + CONFIG.vad_holdoff_sec
-        logger.info("follow-up asr started: session=%s", self._session_id)
-        if self._session_log:
-            self._session_log.record(
-                "followup_asr_started",
-                session_id=self._session_id,
-                max_recording_sec=CONFIG.asr_max_recording_sec,
-            )
+        with self._session_lifecycle_lock:
+            if not self._followup_session_id:
+                return
+            if self._is_tts_guard_active():
+                logger.info("follow-up recording suppressed by tts guard")
+                return
+            self._session_id = self._followup_session_id
+            self._close_followup_window("followup_asr_started")
+            self._session_id = self._session_id or self._followup_session_id
+            self._session_log = self._pipeline_logger.attach_session(self._session_id)
+            bus_snapshot = self._bus.get_buffer()
+            asr_preroll = self._asr_preroll(bus_snapshot)
+            self._endpoint_controller.begin(self._turn_mode_store.read())
+            with self._recording_lock:
+                self._asr_audio_frames = asr_preroll
+                self._asr_recording_epoch = self._asr.start_recording(
+                    initial_audio=b"".join(asr_preroll)
+                )
+                self._recording = True
+            self._vprint.start_capture(initial_audio=b"".join(bus_snapshot))
+            self._asr_t0 = time.monotonic()
+            self._arm_asr_max_recording_deadline()
+            self._vad_holdoff_until = time.monotonic() + CONFIG.vad_holdoff_sec
+            logger.info("follow-up asr started: session=%s", self._session_id)
+            if self._session_log:
+                self._session_log.record(
+                    "followup_asr_started",
+                    session_id=self._session_id,
+                    max_recording_sec=CONFIG.asr_max_recording_sec,
+                )
 
     def _is_tts_guard_active(self) -> bool:
         if not self._tts_guard_enable:
