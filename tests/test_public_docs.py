@@ -97,3 +97,19 @@ def test_public_docs_mark_optional_and_blocked_material() -> None:
     )
     assert "teacher_reference_20260630" in readmes
     assert "root project `LICENSE` has not yet been selected" in readmes
+
+
+def test_third_party_notice_matches_safe_bundle_and_ships_unitree_python_license() -> None:
+    notice = _read(ROOT / "THIRD_PARTY_LICENSES.md")
+    unitree_license = (
+        ROOT
+        / "deps"
+        / "qwen_ros_node_edg_tts"
+        / "third_party"
+        / "unitree_sdk2_python"
+        / "LICENSE"
+    )
+    assert unitree_license.is_file()
+    assert "BSD 3-Clause License" in _read(unitree_license)
+    assert "filtered Git-tracked\nsource snapshot" in notice
+    assert "currently copies the local Qwen" not in notice

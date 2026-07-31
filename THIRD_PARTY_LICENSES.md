@@ -23,14 +23,25 @@ The SDK also ships its own nested third-party license tree. Keep these files wit
 ### Unitree SDK2 Python
 
 - **Path:** `deps/qwen_ros_node_edg_tts/third_party/unitree_sdk2_python/`
-- **License/status:** its vendored `setup.py` declares BSD-3-Clause and version `1.0.1`, consistent with the [official Unitree SDK2 Python repository](https://github.com/unitreerobotics/unitree_sdk2_python). However, this copy has no local `LICENSE` and does not record the exact vendored revision.
-- **Release action:** unresolved. Before public redistribution, restore the matching upstream BSD-3-Clause license text beside the vendored source and record its revision. Do not treat the metadata declaration alone as a shipped license notice.
+- **License/status:** BSD-3-Clause. The vendored `setup.py` declares version
+  `1.0.1`, and the matching official license text is retained as
+  `deps/qwen_ros_node_edg_tts/third_party/unitree_sdk2_python/LICENSE`.
+- **Revision status:** the copy contains local integration changes and does not
+  preserve an exact upstream commit identifier. Record the upstream base if it
+  can be recovered; until then, treat this directory as a modified vendored
+  copy rather than claiming it matches a specific upstream revision.
+- **Official source:** [Unitree SDK2 Python](https://github.com/unitreerobotics/unitree_sdk2_python)
 
 ## Runtime software, models, and services
 
 These items should be obtained from official, pinned sources during installation rather than bundled in a public source or release archive. Record the downloaded revision or digest and checksum. If any model is later redistributed, review and satisfy the terms for the exact bytes being shipped.
 
-**Existing bundle path is blocked:** `scripts/build_release_bundle.sh` currently copies the local Qwen and Paraformer models, optionally copies the WeSpeaker cache, and copies the whole `deps/SURF2026_VoiceModule-main/` tree, including tracked KWS token and keyword files. That behavior is incompatible with the download-on-install and unresolved-license treatments below. Do not publish an archive from this script until the planned bundler fix excludes those artifacts, or each exact artifact has been separately cleared and packaged with its required license, notice, attribution, revision, and checksum.
+The current `scripts/build_release_bundle.sh` creates a filtered Git-tracked
+source snapshot. It excludes downloaded model weights, caches, generated audio,
+runtime data, secrets, symbolic links, and prebuilt libraries. Models remain
+download-on-install items. If a separate offline artifact is ever created, each
+exact model or binary must be cleared and packaged with its required license,
+notice, attribution, revision, and checksum.
 
 | Component and repository location/reference | Published terms and official source | Current release treatment |
 | --- | --- | --- |
