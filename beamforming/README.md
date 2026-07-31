@@ -18,12 +18,18 @@
 - `stream_adapter.py`：从 8 路 PCM16 选 4 路，执行 16 ms-hop 波束处理，再打包为原协议的 20 ms 单声道 UDP payload。
 - `channel_diagnostics.py`：通道电平、静音、削波、重复和相关性分析。
 
-## 离线验证
+## 命令准备
+
+在仓库内任意目录先运行以下命令；后续示例应在同一个 shell 中执行。需要使用专用 Python 环境时，在运行前设置 `VOICE_PYTHON`：
 
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
 VOICE_PYTHON="${VOICE_PYTHON:-python3}"
+```
+
+## 离线验证
+
+```bash
 REF="$REPO_ROOT/research/beamforming/teacher_reference_20260630"
 
 "$VOICE_PYTHON" "$REPO_ROOT/tools/beamforming/verify_teacher_reference.py" "$REF"
@@ -37,10 +43,10 @@ REF="$REPO_ROOT/research/beamforming/teacher_reference_20260630"
 
 ## 下次真机采集
 
-先通过 `arecord -l` 自动确认 Bothlent UAC Dongle 当前 ALSA 编号，再把诊断脚本复制到 Jetson。示例中的 `hw:2,0` 不能长期写死：
+先通过 `arecord -l` 自动确认 Bothlent UAC Dongle 当前 ALSA 编号，再在 Jetson 的仓库副本中按“命令准备”设置变量并运行诊断脚本。示例中的 `hw:2,0` 不能长期写死：
 
 ```bash
-python3 tools/beamforming/capture_multichannel_alsa.py \
+"$VOICE_PYTHON" "$REPO_ROOT/tools/beamforming/capture_multichannel_alsa.py" \
   /tmp/bothlent_raw8.wav \
   --device hw:2,0 \
   --channels 8 \
