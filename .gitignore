@@ -46,7 +46,9 @@ deps/unitree_g1_action_classifier_package/.venv/
 deps/unitree_g1_action_classifier_package/unitree_sdk2/build/
 unitree_sdk2_cyclonedds_bundle_*.tar.gz
 
-# Downloaded model artifacts. Keep lightweight token/keyword config files.
+# Downloaded model artifacts. Keep the project-specific keyword config only;
+# restore the matching KWS token table from the same official model archive.
 *.safetensors
 *.onnx
 *.gguf
+deps/SURF2026_VoiceModule-main/models/kws/tokens.txt
