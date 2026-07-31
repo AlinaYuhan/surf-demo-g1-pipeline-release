@@ -147,8 +147,11 @@ logs/                          Per-session pipeline archives
 deps/                          External runtime dependencies and vendored source
 scripts/                       Startup, stop, check, and log scripts
 DEPENDENCIES.md                Bundled dependency manifest
-PROJECT_CLEANUP.md             What is source vs generated output
-CHANGELOG_20260521.md          Archived update summary for 2026-05-21
+docs/archive/                  Historical documentation, not current runtime truth
+docs/archive/PROJECT_CLEANUP.md
+                               Historical source-vs-generated notes
+docs/archive/CHANGELOG_20260521.md
+                               Historical update summary for 2026-05-21
 ```
 
 ## External Dependencies

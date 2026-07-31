@@ -182,7 +182,7 @@ surf_voice_runtime.py
 unitree_audio_player.py
 pipeline_log/pipeline_logger.py
 scripts/clean_workspace.sh
-README.md
+../../README.md
 PROJECT_CLEANUP.md
 ```
 
@@ -195,7 +195,7 @@ config/voice_config.py
 ros_nodes/voice_pipeline_node.py
 standalone_test.py
 voice_id/speaker_database.py
-README.md
+../../README.md
 ```
 
 ## Current Expected Behavior
@@ -212,4 +212,3 @@ README.md
 9. Robot plays formal reply in blue light.
 10. Robot remains blue after playback.
 ```
-
