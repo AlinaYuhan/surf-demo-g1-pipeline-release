@@ -934,6 +934,38 @@ def run_pipeline_interrupt(
     }
 
 
+def _stop_robot_output(
+    relay_client_factory: Any,
+    generation: int,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+    stop_audio: dict[str, Any] | None = None
+    release_arm: dict[str, Any] | None = None
+    try:
+        relay = relay_client_factory()
+    except Exception as exc:
+        return stop_audio, release_arm, [f"relay_client: {exc}"]
+
+    try:
+        stop_audio = relay.stop_audio("tts", generation=generation)
+        if not isinstance(stop_audio, dict) or int(stop_audio.get("ret", -1)) != 0:
+            errors.append(
+                f"stop_audio returned ret={stop_audio.get('ret', 'missing') if isinstance(stop_audio, dict) else 'invalid'}"
+            )
+    except Exception as exc:
+        errors.append(f"stop_audio: {exc}")
+
+    try:
+        release_arm = relay.release_arm(generation=generation)
+        if not isinstance(release_arm, dict) or int(release_arm.get("ret", -1)) != 0:
+            errors.append(
+                f"release_arm returned ret={release_arm.get('ret', 'missing') if isinstance(release_arm, dict) else 'invalid'}"
+            )
+    except Exception as exc:
+        errors.append(f"release_arm: {exc}")
+    return stop_audio, release_arm, errors
+
+
 def run_pipeline_end_session(
     logs_dir: Path = DEFAULT_LOGS_DIR,
     pipeline_running_checker: Any = _pipeline_services_running,
@@ -948,20 +980,7 @@ def run_pipeline_end_session(
     control = interrupt_control or InterruptControl(PROJECT_ROOT / "runtime")
     command = control.begin(session_id=session_id)
     generation = int(command["generation"])
-    errors: list[str] = []
-    stop_audio: dict[str, Any] | None = None
-    release_arm: dict[str, Any] | None = None
-
-    try:
-        relay = relay_client_factory()
-        stop_audio = relay.stop_audio("tts", generation=generation)
-        if not isinstance(stop_audio, dict) or int(stop_audio.get("ret", -1)) != 0:
-            errors.append(f"stop_audio returned ret={stop_audio.get('ret', 'missing') if isinstance(stop_audio, dict) else 'invalid'}")
-        release_arm = relay.release_arm(generation=generation)
-        if not isinstance(release_arm, dict) or int(release_arm.get("ret", -1)) != 0:
-            errors.append(f"release_arm returned ret={release_arm.get('ret', 'missing') if isinstance(release_arm, dict) else 'invalid'}")
-    except Exception as exc:
-        errors.append(str(exc))
+    stop_audio, release_arm, errors = _stop_robot_output(relay_client_factory, generation)
 
     try:
         command = control.request_session_end(
@@ -1001,6 +1020,7 @@ def run_pipeline_end_session(
 def run_pipeline_silent_end(
     logs_dir: Path = DEFAULT_LOGS_DIR,
     pipeline_running_checker: Any = _pipeline_services_running,
+    relay_client_factory: Any = _make_robot_relay_client,
     interrupt_control: InterruptControl | None = None,
 ) -> dict[str, Any]:
     if not pipeline_running_checker():
@@ -1010,16 +1030,30 @@ def run_pipeline_silent_end(
     control = interrupt_control or InterruptControl(PROJECT_ROOT / "runtime")
     command = control.begin(session_id=session_id)
     generation = int(command["generation"])
+    stop_audio, release_arm, errors = _stop_robot_output(relay_client_factory, generation)
+    session_end_requested = False
     try:
         command = control.request_silent_end(session_id=session_id, command=command)
+        session_end_requested = True
     except Exception as exc:
-        return {"ok": False, "partial": False, "error": str(exc)}
+        errors.append(f"request_silent_end: {exc}")
+    if not session_end_requested:
+        message = "静默关闭失败"
+    elif errors:
+        message = "会话已静默关闭，但机器人停音或复位未完成"
+    else:
+        message = "已静默关闭会话"
     return {
-        "ok": True, "partial": False,
-        "message": "已静默关闭会话",
+        "ok": session_end_requested and not errors,
+        "partial": session_end_requested and bool(errors),
+        "message": message,
         "session_id": session_id,
         "request_id": command["request_id"],
         "generation": generation,
+        "session_end_requested": session_end_requested,
+        "stop_audio": stop_audio,
+        "release_arm": release_arm,
+        "errors": errors,
     }
 
 
@@ -1282,7 +1316,7 @@ def make_handler(logs_dir: Path) -> type[BaseHTTPRequestHandler]:
         def _run_pipeline_silent_end(self) -> None:
             try:
                 payload = run_pipeline_silent_end(logs_dir=logs_dir)
-                status = HTTPStatus.OK if payload.get("ok") else HTTPStatus.INTERNAL_SERVER_ERROR
+                status = HTTPStatus.OK if payload.get("ok") or payload.get("partial") else HTTPStatus.INTERNAL_SERVER_ERROR
                 _json_response(self, payload, status)
             except Exception as exc:
                 _json_response(

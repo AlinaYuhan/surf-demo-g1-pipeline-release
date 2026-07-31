@@ -507,10 +507,17 @@ async function runPipelineSilentEnd() {
   try {
     const response = await fetch("/api/pipeline/silent-end", { method: "POST" });
     const payload = await response.json();
-    setSessionStatus(payload.ok ? "已关闭" : "关闭失败", payload.ok ? "" : "partial");
+    if (payload.ok) {
+      setSessionStatus("已关闭", "ok");
+    } else if (payload.partial) {
+      setSessionStatus("关闭中，机器人复位未完成", "partial");
+    } else {
+      setSessionStatus("关闭失败", "error");
+    }
     await loadSnapshot();
   } catch (error) {
     addEvent({ kind: "system", title: "ERROR", message: `静默关闭失败：${String(error)}` });
+    setSessionStatus("关闭失败", "error");
   } finally {
     await refreshPipelineStatus();
     setPipelineBusy(false);

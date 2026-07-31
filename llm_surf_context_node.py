@@ -212,21 +212,11 @@ class LlmSurfContextNode(Node):
                 generation=command.get("generation", 0),
                 session_id=request_session_id,
             )
-            with self._wake_state_lock:
-                self._conversation_session_id = ""
-                self._followup_until = 0.0
-                self._followup_generation += 1
-                self.awaiting_command_after_wake = False
-                self._wake_listen_until = 0.0
-                self._wake_command_started = False
-            self._update_status(
-                followup_active=False,
-                followup_session_id="",
-                wake_listen_active=False,
-                last_followup_closed_reason="manual_silent_end",
+            self._handle_terminate_command(
+                request_session_id,
+                play_ack=False,
+                reason="manual_silent_end",
             )
-            self._write_followup_control_close(request_session_id, "manual_silent_end")
-            self._set_wake_light_blue()
             return
 
         if command.get("command") != "end_session":
@@ -831,7 +821,14 @@ class LlmSurfContextNode(Node):
             return False
         return matches_command(text, CONFIG.terminate_commands)
 
-    def _handle_terminate_command(self, session_id: str, user_text: str = "") -> None:
+    def _handle_terminate_command(
+        self,
+        session_id: str,
+        user_text: str = "",
+        *,
+        play_ack: bool = True,
+        reason: str = "terminate_command",
+    ) -> None:
         self.get_logger().info("terminate command received; closing interaction")
         with self._wake_state_lock:
             self._conversation_session_id = ""
@@ -845,13 +842,16 @@ class LlmSurfContextNode(Node):
             followup_active=False,
             followup_session_id="",
             wake_listen_active=False,
-            last_followup_closed_reason="terminate_command",
-            last_wake_listen_closed_reason="terminate_command",
+            last_followup_closed_reason=reason,
+            last_wake_listen_closed_reason=reason,
             last_terminate_command_time=time.time(),
         )
-        self._session_record("terminate_command", session_id=session_id)
-        self._write_followup_control_close(session_id, "terminate_command")
+        self._session_record(reason, session_id=session_id)
+        self._write_followup_control_close(session_id, reason)
         self._set_wake_light_blue()
+
+        if not play_ack:
+            return
 
         ack_text = select_terminate_ack_text(
             user_text,

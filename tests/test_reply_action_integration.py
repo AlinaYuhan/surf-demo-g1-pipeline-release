@@ -144,6 +144,81 @@ class ReplyActionIntegrationTests(unittest.TestCase):
             [("小浦退下了，有问题随时叫小浦。", "session-1")],
         )
 
+    def test_silent_end_uses_shared_close_without_ack(self):
+        calls = {
+            "close": [],
+            "status": [],
+            "record": [],
+            "followup": [],
+            "light": 0,
+            "tts": [],
+            "waves": [],
+        }
+
+        class FakeLogger:
+            def info(self, _message):
+                return None
+
+            def warn(self, _message):
+                return None
+
+        class FakeControl:
+            def read_session_command(self):
+                return {"command": "silent_end", "request_id": "silent-1", "generation": 4}
+
+        class FakeNode:
+            _wake_state_lock = threading.Lock()
+            _conversation_session_id = "session-1"
+            _session_id = "session-fallback"
+            _followup_until = 1.0
+            _followup_generation = 0
+            awaiting_command_after_wake = True
+            _wake_listen_until = 1.0
+            _wake_command_started = True
+            _last_session_command_request_id = ""
+            _interrupt_control = FakeControl()
+
+            def get_logger(self):
+                return FakeLogger()
+
+            def _update_status(self, **kwargs):
+                calls["status"].append(kwargs)
+
+            def _session_record(self, *args, **kwargs):
+                calls["record"].append((args, kwargs))
+
+            def _write_followup_control_close(self, *args):
+                calls["followup"].append(args)
+
+            def _set_wake_light_blue(self):
+                calls["light"] += 1
+
+            def _prepare_tts_wav(self, kind, text, session_id):
+                calls["tts"].append((kind, text, session_id))
+                return True
+
+            def _queue_terminate_wave(self, text, session_id):
+                calls["waves"].append((text, session_id))
+
+            def _handle_terminate_command(self, *args, **kwargs):
+                calls["close"].append((args, kwargs))
+                return context_module.LlmSurfContextNode._handle_terminate_command(self, *args, **kwargs)
+
+        node = FakeNode()
+        context_module.LlmSurfContextNode._poll_session_command(node)
+
+        self.assertEqual(
+            calls["close"],
+            [(("session-1",), {"play_ack": False, "reason": "manual_silent_end"})],
+        )
+        self.assertEqual(node._conversation_session_id, "")
+        self.assertFalse(node.awaiting_command_after_wake)
+        self.assertEqual(calls["status"][-1]["last_followup_closed_reason"], "manual_silent_end")
+        self.assertEqual(calls["followup"], [("session-1", "manual_silent_end")])
+        self.assertEqual(calls["light"], 1)
+        self.assertEqual(calls["tts"], [])
+        self.assertEqual(calls["waves"], [])
+
     def test_runtime_classifies_without_executing_then_executes_one_target(self):
         calls = {"classify": [], "execute": [], "log": []}
 

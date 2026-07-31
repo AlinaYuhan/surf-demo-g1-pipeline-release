@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import time
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 import sys
@@ -28,6 +29,7 @@ from pipeline_monitor.server import (
     run_pipeline_command,
     run_pipeline_end_session,
     run_pipeline_interrupt,
+    run_pipeline_silent_end,
     run_pipeline_simulate_wake,
     turn_mode_status,
     update_first_turn_mode,
@@ -871,6 +873,228 @@ card 2: APE [NVIDIA Jetson Orin NX APE], device 0: tegra-dlink-0 []
                     ("request_session_end", "20260718_010203_s001", "", 9),
                 ],
             )
+
+    def test_run_pipeline_silent_end_stops_output_then_requests_silent_close(self):
+        calls = []
+
+        class FakeRelayClient:
+            def stop_audio(self, app_name, generation=None):
+                calls.append(("stop_audio", app_name, generation))
+                return {"ok": True, "ret": 0}
+
+            def release_arm(self, generation=None):
+                calls.append(("release_arm", generation))
+                return {"ok": True, "ret": 0}
+
+        class FakeControl:
+            def begin(self, session_id):
+                calls.append(("begin", session_id))
+                return {"request_id": "silent-1", "generation": 9, "session_id": session_id}
+
+            def request_silent_end(self, session_id, command=None):
+                calls.append(("request_silent_end", session_id, command["generation"]))
+                return {"request_id": "silent-1", "generation": 9, "session_id": session_id}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            logs_dir = Path(tmp) / "logs"
+            log_path = logs_dir / "20260718_010203_s001" / "pipeline.log"
+            log_path.parent.mkdir(parents=True)
+            log_path.write_text('{"stage":"llm_reply"}\n', encoding="utf-8")
+
+            result = run_pipeline_silent_end(
+                logs_dir=logs_dir,
+                pipeline_running_checker=lambda: True,
+                relay_client_factory=lambda: FakeRelayClient(),
+                interrupt_control=FakeControl(),
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertFalse(result["partial"])
+        self.assertTrue(result["session_end_requested"])
+        self.assertEqual(
+            calls,
+            [
+                ("begin", "20260718_010203_s001"),
+                ("stop_audio", "tts", 9),
+                ("release_arm", 9),
+                ("request_silent_end", "20260718_010203_s001", 9),
+            ],
+        )
+
+    def test_run_pipeline_silent_end_records_relay_failures_after_closing(self):
+        calls = []
+
+        class FakeRelayClient:
+            def stop_audio(self, _app_name, generation=None):
+                calls.append(("stop_audio", generation))
+                return {"ret": 3}
+
+            def release_arm(self, generation=None):
+                calls.append(("release_arm", generation))
+                return {"ret": 4}
+
+        class FakeControl:
+            def begin(self, session_id):
+                return {"request_id": "silent-2", "generation": 5, "session_id": session_id}
+
+            def request_silent_end(self, session_id, command=None):
+                calls.append(("request_silent_end", session_id, command["generation"]))
+                return command
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_pipeline_silent_end(
+                logs_dir=Path(tmp) / "logs",
+                pipeline_running_checker=lambda: True,
+                relay_client_factory=lambda: FakeRelayClient(),
+                interrupt_control=FakeControl(),
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["partial"])
+        self.assertTrue(result["session_end_requested"])
+        self.assertEqual(calls, [("stop_audio", 5), ("release_arm", 5), ("request_silent_end", "", 5)])
+        self.assertEqual(result["message"], "会话已静默关闭，但机器人停音或复位未完成")
+
+    def test_run_pipeline_silent_end_attempts_release_and_close_after_stop_exception(self):
+        calls = []
+
+        class FakeRelayClient:
+            def stop_audio(self, _app_name, generation=None):
+                calls.append(("stop_audio", generation))
+                raise RuntimeError("speaker unavailable")
+
+            def release_arm(self, generation=None):
+                calls.append(("release_arm", generation))
+                return {"ret": 0}
+
+        class FakeControl:
+            def begin(self, session_id):
+                return {"request_id": "silent-3", "generation": 6, "session_id": session_id}
+
+            def request_silent_end(self, session_id, command=None):
+                calls.append(("request_silent_end", session_id, command["generation"]))
+                return command
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_pipeline_silent_end(
+                logs_dir=Path(tmp) / "logs",
+                pipeline_running_checker=lambda: True,
+                relay_client_factory=lambda: FakeRelayClient(),
+                interrupt_control=FakeControl(),
+            )
+
+        self.assertTrue(result["partial"])
+        self.assertTrue(result["session_end_requested"])
+        self.assertEqual(calls, [("stop_audio", 6), ("release_arm", 6), ("request_silent_end", "", 6)])
+
+    def test_run_pipeline_silent_end_reports_command_write_failure(self):
+        class FakeRelayClient:
+            def stop_audio(self, _app_name, generation=None):
+                return {"ret": 0}
+
+            def release_arm(self, generation=None):
+                return {"ret": 0}
+
+        class FakeControl:
+            def begin(self, session_id):
+                return {"request_id": "silent-4", "generation": 7, "session_id": session_id}
+
+            def request_silent_end(self, session_id, command=None):
+                raise RuntimeError("write failed")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_pipeline_silent_end(
+                logs_dir=Path(tmp) / "logs",
+                pipeline_running_checker=lambda: True,
+                relay_client_factory=lambda: FakeRelayClient(),
+                interrupt_control=FakeControl(),
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertFalse(result["partial"])
+        self.assertFalse(result["session_end_requested"])
+        self.assertEqual(result["message"], "静默关闭失败")
+
+    def test_silent_end_http_returns_ok_for_ok_close(self):
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "pipeline_monitor.server.run_pipeline_silent_end",
+            return_value={"ok": True, "partial": False, "message": "closed"},
+        ):
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(Path(tmp) / "logs"))
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/pipeline/silent-end",
+                    method="POST",
+                )
+                with urllib.request.urlopen(request) as response:
+                    self.assertEqual(response.status, 200)
+            finally:
+                server.shutdown()
+                thread.join()
+                server.server_close()
+
+    def test_silent_end_http_returns_ok_for_partial_close(self):
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "pipeline_monitor.server.run_pipeline_silent_end",
+            return_value={"ok": False, "partial": True, "message": "partial"},
+        ):
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(Path(tmp) / "logs"))
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/pipeline/silent-end",
+                    method="POST",
+                )
+                with urllib.request.urlopen(request) as response:
+                    self.assertEqual(response.status, 200)
+            finally:
+                server.shutdown()
+                thread.join()
+                server.server_close()
+
+    def test_silent_end_http_returns_error_for_failed_close(self):
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "pipeline_monitor.server.run_pipeline_silent_end",
+            return_value={
+                "ok": False,
+                "partial": False,
+                "session_end_requested": False,
+                "message": "静默关闭失败",
+            },
+        ):
+            server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(Path(tmp) / "logs"))
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                request = urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_port}/api/pipeline/silent-end",
+                    method="POST",
+                )
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(request)
+                self.assertEqual(raised.exception.code, 500)
+            finally:
+                server.shutdown()
+                thread.join()
+                server.server_close()
+
+    def test_monitor_ui_renders_all_silent_end_outcomes(self):
+        javascript = (Path(__file__).resolve().parents[1] / "ui/pipeline_monitor/app.js").read_text(
+            encoding="utf-8"
+        )
+        handler = javascript.split("async function runPipelineSilentEnd()", 1)[1].split(
+            "async function runPipelineSimulateWake()", 1
+        )[0]
+        self.assertIn('setSessionStatus("已关闭", "ok")', handler)
+        self.assertIn('setSessionStatus("关闭中，机器人复位未完成", "partial")', handler)
+        self.assertEqual(handler.count('setSessionStatus("关闭失败", "error")'), 2)
+        explicit_failure = handler.split("} else {", 1)[1].split("await loadSnapshot", 1)[0]
+        self.assertIn('setSessionStatus("关闭失败", "error")', explicit_failure)
+        catch_failure = handler.split("} catch (error) {", 1)[1]
+        self.assertIn('setSessionStatus("关闭失败", "error")', catch_failure)
 
     def test_monitor_ui_exposes_end_session_control(self):
         project_root = Path(__file__).resolve().parents[1]
