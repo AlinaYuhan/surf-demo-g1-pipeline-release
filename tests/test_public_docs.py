@@ -113,3 +113,12 @@ def test_third_party_notice_matches_safe_bundle_and_ships_unitree_python_license
     assert "BSD 3-Clause License" in _read(unitree_license)
     assert "filtered Git-tracked\nsource snapshot" in notice
     assert "currently copies the local Qwen" not in notice
+
+
+def test_active_first_party_docs_do_not_publish_machine_specific_robot_ips() -> None:
+    active_docs = PUBLIC_DOCS + (
+        ROOT / "deps" / "SURF2026_VoiceModule-main" / "README.md",
+    )
+    forbidden = re.compile(r"192\.168\.123\.(?:164|222|225)")
+    leaks = [str(path.relative_to(ROOT)) for path in active_docs if forbidden.search(_read(path))]
+    assert not leaks, "Machine-specific robot IPs in active docs: " + ", ".join(leaks)

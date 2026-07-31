@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-PYTHON_BIN="${PIPELINE_MONITOR_PYTHON:-${PYTHON:-python3}}"
 
 cd "${PROJECT_ROOT}"
 set -a
@@ -13,4 +12,5 @@ if [[ -f "${PROJECT_ROOT}/config/local.env" ]]; then
   source "${PROJECT_ROOT}/config/local.env"
 fi
 set +a
+PYTHON_BIN="${PIPELINE_MONITOR_PYTHON:-${LLM_PYTHON:-${PYTHON:-python3}}}"
 exec "${PYTHON_BIN}" -m pipeline_monitor.server "$@"

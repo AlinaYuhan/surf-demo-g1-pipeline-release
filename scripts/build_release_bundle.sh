@@ -102,6 +102,9 @@ is_public_bundle_path() {
     xjtlu-rag-system/chat_memory.db|*/chat_memory.db)
       return 1
       ;;
+    deps/SURF2026_VoiceModule-main/models/kws/tokens.txt)
+      return 1
+      ;;
     *.onnx|*.safetensors|*.gguf|*.ckpt|*.pt|*.pth)
       return 1
       ;;

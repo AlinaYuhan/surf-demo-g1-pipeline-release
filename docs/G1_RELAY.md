@@ -36,8 +36,39 @@ Check connectivity before starting the full pipeline:
 
 ## Jetson relay
 
-On the Jetson, use its installed Unitree SDK/CycloneDDS runtime and set the
-machine-specific values explicitly:
+The relay launcher assumes a Jetson image that already has Unitree SDK2 Python
+and CycloneDDS installed. It also references these native-library directories:
+
+```text
+/home/unitree/cyclonedds_ws/install/cyclonedds/lib
+/home/unitree/unitree_sdk2-main/thirdparty/lib/aarch64
+```
+
+Verify those prerequisites on the Jetson before deploying project files:
+
+```bash
+python3 -c "import unitree_sdk2py; print('unitree_sdk2py ok')"
+test -d /home/unitree/cyclonedds_ws/install/cyclonedds/lib
+test -d /home/unitree/unitree_sdk2-main/thirdparty/lib/aarch64
+```
+
+If they are absent, install Unitree SDK2 Python and its CycloneDDS dependency
+from the official Unitree instructions linked in
+[THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md), or adapt the launcher to
+the verified locations on that Jetson image.
+
+There is no general-purpose relay deployment script yet. From the host, copy
+the two required files to the layout expected by the Monitor:
+
+```bash
+ssh unitree@<jetson-host> 'mkdir -p ~/surf_robot_relay/robot_relay ~/surf_robot_relay/scripts'
+scp robot_relay/jetson_robot_relay.py \
+  unitree@<jetson-host>:~/surf_robot_relay/robot_relay/
+scp scripts/run_jetson_robot_relay.sh \
+  unitree@<jetson-host>:~/surf_robot_relay/scripts/
+```
+
+Then, on the Jetson, set the machine-specific values explicitly and launch:
 
 ```bash
 export UNITREE_NETWORK_INTERFACE="<interface-connected-to-g1>"
@@ -47,8 +78,14 @@ export ROBOT_RELAY_PORT="9999"
 ./scripts/run_jetson_robot_relay.sh
 ```
 
-The launcher uses the current deployment's native library locations under
-`/home/unitree/`. If another Jetson image uses different locations, adjust the
+Run the command from `~/surf_robot_relay`. Back on the host, place the Jetson
+address in `config/local.env` and verify the TCP relay:
+
+```bash
+./scripts/check_robot_relay.sh
+```
+
+If another Jetson image uses different native-library locations, adjust the
 launcher locally rather than committing one machine's paths as universal
 defaults.
 

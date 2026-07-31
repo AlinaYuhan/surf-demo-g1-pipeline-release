@@ -114,6 +114,9 @@ def test_launchers_source_local_config_and_validate_jetson_network_values():
     monitor = (ROOT / "scripts/run_pipeline_monitor.sh").read_text(encoding="utf-8")
     assert 'source "${PROJECT_ROOT}/config/default.env"' in monitor
     assert 'source "${PROJECT_ROOT}/config/local.env"' in monitor
+    assert monitor.index('source "${PROJECT_ROOT}/config/local.env"') < monitor.index(
+        'PYTHON_BIN="${PIPELINE_MONITOR_PYTHON:-${LLM_PYTHON:-${PYTHON:-python3}}}"'
+    )
 
     for relative_path in ("scripts/run_pipeline.sh", "scripts/check_robot_relay.sh", "scripts/check_pipeline.sh"):
         launcher = (ROOT / relative_path).read_text(encoding="utf-8")

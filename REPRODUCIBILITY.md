@@ -65,8 +65,10 @@ each reproducibility claim.
 - The project still needs a selected root `LICENSE`.
 - Redistribution permission for
   `research/beamforming/teacher_reference_20260630/` is unresolved.
-- The vendored Unitree Python SDK needs its matching license notice and revision
-  recorded, as described in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+- The vendored Unitree Python SDK now includes its matching BSD-3-Clause notice,
+  but its exact upstream base revision has not been recovered; treat it as a
+  modified vendored copy as described in
+  [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
 Do not publish an artifact until these release checks are resolved or the
 affected files are excluded. Use the source-only builder described in

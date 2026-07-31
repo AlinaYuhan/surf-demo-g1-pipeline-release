@@ -68,7 +68,9 @@ keywords.txt
 Obtain the matching `sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01`
 assets through the official sherpa-onnx pretrained KWS documentation linked in
 [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md). The repository does not
-redistribute the ONNX weights. Verify the model directory with:
+redistribute the ONNX weights or the model's `tokens.txt`; copy both from the
+same official model archive so their vocabularies match. The project-specific
+`keywords.txt` remains tracked. Verify the completed model directory with:
 
 ```bash
 deps/SURF2026_VoiceModule-main/scripts/check_project.sh
