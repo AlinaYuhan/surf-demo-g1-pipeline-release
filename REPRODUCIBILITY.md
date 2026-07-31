@@ -23,7 +23,7 @@ These are intentionally ignored:
 - `config/local.env`: local API keys and machine-specific overrides.
 - `deps/ollama/`: local Ollama binary bundle.
 - `deps/ollama-home/`: local Ollama model cache.
-- `deps/Qwen3.5-0.8B/`: local Qwen model weights, currently unused by the default RAG backend.
+- `deps/Qwen3.5-0.8B/`: local Qwen model weights, currently unused by the default DeepSeek backend.
 - `deps/unitree_g1_action_classifier_package/.venv/`: local action classifier virtual environment.
 - `deps/unitree_g1_action_classifier_package/unitree_sdk2/build/`: generated CMake build outputs, including `g1_arm_action_example`.
 - `*.onnx`: downloaded wake-word model binaries.
@@ -38,9 +38,9 @@ These are intentionally ignored:
   - `$HOME/miniconda3/envs/llm/bin/python`
 - Python/conda environment for the voice pipeline, installed from
   `requirements-voice.txt`, default path:
-  - `$HOME/miniconda3/envs/voice/bin/python`
+  - `$HOME/miniconda3/envs/voice312/bin/python` (Python 3.12)
 - DeepSeek-compatible OpenAI API key.
-- Ollama with `nomic-embed-text` available locally.
+- Optional RAG backend only: Ollama with `nomic-embed-text` available locally.
 - Unitree G1 network access through the configured interface, default:
   - `enp8s0`
 - CycloneDDS through the bundled Unitree SDK:
@@ -69,7 +69,8 @@ or update the matching paths in `config/local.env`.
 
 ## Restore Missing Runtime Assets
 
-Install or restore Ollama, then pull the embedding model:
+If using the optional RAG backend, install or restore Ollama, then pull the
+embedding model:
 
 ```bash
 ollama pull nomic-embed-text
@@ -116,13 +117,13 @@ The repo includes `keywords.txt` and `tokens.txt`, but not the ONNX binaries.
 The default source configuration is:
 
 ```text
-LLM_REPLY_BACKEND=rag
-CHAT_PROVIDER=openai
-CHAT_MODEL=deepseek-v4-pro
-EMBED_PROVIDER=ollama
-EMBED_MODEL=nomic-embed-text
+LLM_REPLY_BACKEND=deepseek
+LLM_DEEPSEEK_MODEL=deepseek-v4-pro
 LLM_ACTION_BACKEND=deepseek
+UNITREE_BACKEND=relay
 ```
+
+Set `LLM_REPLY_BACKEND=rag` to opt into XJTLU RAG and Ollama embeddings.
 
 Current flow:
 
@@ -130,10 +131,10 @@ Current flow:
 G1 mic UDP audio
 -> SURF wake/VAD/ASR/speaker
 -> ROS2 /audio_msg
--> XJTLU RAG + Ollama embedding
 -> DeepSeek reply + action JSON
 -> Edge TTS
--> Unitree DDS audio playback
+-> Jetson robot relay
+-> Unitree G1 audio playback
 -> Unitree G1 action runner
 ```
 

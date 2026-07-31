@@ -43,11 +43,11 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-llm.txt
 ```
 
-The SURF voice module may use a separate environment:
+The SURF voice module uses a separate Python 3.12 environment by default:
 
 ```bash
-conda create -n voice python=3.11 -y
-conda activate voice
+conda create -n voice312 python=3.12 -y
+conda activate voice312
 python -m pip install --upgrade pip
 python -m pip install -r requirements-voice.txt
 ```
@@ -73,19 +73,20 @@ Set the actual paths in `config/local.env`:
 
 ```bash
 LLM_PYTHON="${HOME}/miniconda3/envs/llm/bin/python"
-VOICE_PYTHON="${HOME}/miniconda3/envs/voice/bin/python"
+VOICE_PYTHON="${HOME}/miniconda3/envs/voice312/bin/python"
 ```
 
-## Ollama
+## Optional RAG / Ollama
 
-Install Ollama, start it, and pull the embedding model:
+Ollama is not required by the default direct DeepSeek backend. When using
+`LLM_REPLY_BACKEND=rag`, install Ollama, start it, and pull the embedding model:
 
 ```bash
 ollama pull nomic-embed-text
 ollama list
 ```
 
-The default embedding config is:
+The RAG embedding config is:
 
 ```text
 EMBED_PROVIDER=ollama
@@ -122,10 +123,11 @@ Set the robot network interface:
 UNITREE_NETWORK_INTERFACE="enp8s0"
 UNITREE_DOMAIN_ID="0"
 UNITREE_ENABLE="1"
+UNITREE_BACKEND="relay"
 ```
 
-The startup script disables G1 audio/action execution automatically if the
-configured network interface is not active.
+The default sends G1 output through the Jetson relay. The network interface is
+used when explicitly selecting `UNITREE_BACKEND=direct`.
 
 ## CycloneDDS / Unitree DDS
 

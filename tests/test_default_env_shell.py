@@ -110,6 +110,18 @@ class DefaultEnvShellTests(unittest.TestCase):
 
         self.assertIn('LLM_THINKING_ACK_CACHE_VERSION="v2"', local_example)
 
+    def test_active_operator_docs_match_runtime_defaults(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        reproducibility = (ROOT / "REPRODUCIBILITY.md").read_text(encoding="utf-8")
+        environment = (ROOT / "ENVIRONMENT.md").read_text(encoding="utf-8")
+
+        for guide in (readme, reproducibility):
+            self.assertIn("LLM_REPLY_BACKEND=deepseek", guide)
+            self.assertIn("UNITREE_BACKEND=relay", guide)
+            self.assertRegex(guide, r"(?is)optional.{0,120}(?:RAG|Ollama)")
+        self.assertIn("conda create -n voice312 python=3.12 -y", environment)
+        self.assertIn("/envs/voice312/bin/python", environment)
+
     def test_rag_preflight_dependencies_are_guarded_by_backend(self):
         script = (ROOT / "scripts" / "check_pipeline.sh").read_text(encoding="utf-8")
         rag_guard_depth = 0

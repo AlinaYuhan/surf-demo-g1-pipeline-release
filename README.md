@@ -1,7 +1,7 @@
 # SURF LLM Clean Workspace
 
-Integrated workspace for the SURF voice module, XJTLU RAG, TTS playback, and
-Unitree G1 action execution.
+Integrated workspace for the SURF voice module, direct DeepSeek replies, TTS
+playback, Unitree G1 action execution, and optional XJTLU RAG.
 
 For a fresh machine setup, read [ENVIRONMENT.md](ENVIRONMENT.md) and
 [REPRODUCIBILITY.md](REPRODUCIBILITY.md). This repo excludes large runtime
@@ -14,7 +14,7 @@ SURF voice runtime
   -> /audio_msg
   -> llm_surf_context_node.py
   -> llm_server.py
-  -> XJTLU RAG / Ollama embedding / DeepSeek reply + action
+  -> DeepSeek reply + action (optional XJTLU RAG / Ollama embedding)
   -> Edge TTS wav
   -> Unitree action runner
 ```
@@ -24,7 +24,7 @@ SURF voice runtime
 Voice timing:
 
 ```text
-wake word -> wake ack "我在" -> record command -> 1.5s silence -> ASR -> thinking ack "收到，我在思考" -> DeepSeek/RAG
+wake word -> wake ack "我在" -> record command -> 1.5s silence -> ASR -> thinking ack "收到，我在思考" -> DeepSeek
 ```
 
 The ASR hard deadline is only a no-speech fallback. Once speech is detected by
@@ -101,15 +101,17 @@ Monitor ASR topic:
 
 ## Current Backend
 
-The default configured backend is RAG:
+The default configuration calls DeepSeek directly and sends G1 output through
+the Jetson relay:
 
 ```text
-LLM_REPLY_BACKEND=rag
-CHAT_PROVIDER=openai
-CHAT_MODEL=deepseek-v4-pro
-EMBED_PROVIDER=ollama
-EMBED_MODEL=nomic-embed-text
+LLM_REPLY_BACKEND=deepseek
+LLM_DEEPSEEK_MODEL=deepseek-v4-pro
+UNITREE_BACKEND=relay
 ```
+
+RAG and its Ollama embedding service remain optional via
+`LLM_REPLY_BACKEND=rag`.
 
 Put machine-specific values and secrets in `config/local.env`. This file is
 loaded after `config/default.env` and is ignored by git:
@@ -131,6 +133,7 @@ python -m pip install -r requirements-voice.txt
 Switch reply backend:
 
 ```bash
+./scripts/env_set.sh LLM_REPLY_BACKEND deepseek
 ./scripts/env_set.sh LLM_REPLY_BACKEND rag
 ./scripts/env_set.sh LLM_REPLY_BACKEND local
 ./scripts/env_set.sh LLM_REPLY_BACKEND dashscope
@@ -161,7 +164,8 @@ artifacts such as conda environments, Ollama binaries, Ollama model cache, local
 Qwen model weights, generated build directories, logs, or TTS output. Install or
 restore them locally, then point `config/local.env` at those paths when needed.
 
-Expected paths in the current deployment:
+Expected paths in the current deployment (the Ollama paths are optional and
+used only by the RAG backend):
 
 ```text
 SURF_ROOT=deps/SURF2026_VoiceModule-main
@@ -175,10 +179,10 @@ Python interpreters are external environment dependencies:
 
 ```text
 LLM_PYTHON=$HOME/miniconda3/envs/llm/bin/python
-VOICE_PYTHON from deps/SURF2026_VoiceModule-main/config/default.env
+VOICE_PYTHON=$HOME/miniconda3/envs/voice312/bin/python
 ```
 
-The expected Ollama embedding model is `nomic-embed-text`:
+When RAG is enabled, the expected Ollama embedding model is `nomic-embed-text`:
 
 ```bash
 ollama pull nomic-embed-text
