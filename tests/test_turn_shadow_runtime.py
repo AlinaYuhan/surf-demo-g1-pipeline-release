@@ -82,6 +82,22 @@ class ClosingShadow:
         self.closed = True
 
 
+class SessionCommandControl:
+    def __init__(self, command):
+        self.command = command
+
+    def read_session_command(self):
+        return self.command
+
+
+class RecordingWakeDispatcher:
+    def __init__(self) -> None:
+        self.words = []
+
+    def on_detection(self, word: str) -> None:
+        self.words.append(word)
+
+
 def test_disabled_runtime_does_not_create_shadow_log(tmp_path) -> None:
     session_log = SessionLog(session_id="session-001", session_dir=tmp_path)
 
@@ -119,6 +135,8 @@ def test_voice_runtime_mirrors_vad_without_changing_publish_path(monkeypatch) ->
     runtime._sink = RecordingSink()
     runtime._turn_shadow = RecordingShadow()
     runtime._recording = True
+    runtime._endpoint_controller = SimpleNamespace(on_vad=lambda *_args, **_kwargs: False)
+    runtime._vad_holdoff_until = 0.0
     guard_calls = []
 
     def agent_playing() -> bool:
@@ -148,6 +166,11 @@ def test_voice_runtime_mirrors_wake_after_session_creation(monkeypatch) -> None:
     runtime._asr_preroll = lambda _snapshot: []
     runtime._asr = FakeASR()
     runtime._vprint = FakeVoiceprint()
+    runtime._first_turn_mode_store = SimpleNamespace(read=lambda: "standard")
+    runtime._turn_mode_store = SimpleNamespace(read=lambda: "basic")
+    runtime._endpoint_controller = SimpleNamespace(begin=lambda *_args, **_kwargs: None)
+    runtime._recording_lock = threading.Lock()
+    runtime._vad_holdoff_until = 0.0
     runtime._arm_asr_max_recording_deadline = lambda: None
     runtime._session_log = None
 
@@ -318,3 +341,89 @@ def test_agent_playing_provider_runs_on_worker_not_submission_thread(tmp_path) -
     assert provider_threads
     assert all(thread_id != submitting_thread for thread_id in provider_threads)
     assert all(decision["agent_playing"] is True for decision in decisions)
+
+
+def test_voice_runtime_dispatches_each_new_manual_wake_request_once(monkeypatch) -> None:
+    SurfVoiceRuntime = _load_voice_runtime(monkeypatch)
+    runtime = object.__new__(SurfVoiceRuntime)
+    runtime._wake_dispatch_lock = threading.Lock()
+    runtime._dispatch = RecordingWakeDispatcher()
+    runtime._interrupt_control = SessionCommandControl(
+        {"command": "simulate_wake", "request_id": "manual-1", "wake_word": "你好小浦"}
+    )
+    runtime._last_session_command_request_id = ""
+
+    runtime._poll_session_command()
+    runtime._poll_session_command()
+
+    assert runtime._dispatch.words == ["你好小浦"]
+
+
+def test_voice_runtime_does_not_replay_session_command_present_at_startup(monkeypatch) -> None:
+    SurfVoiceRuntime = _load_voice_runtime(monkeypatch)
+    runtime = object.__new__(SurfVoiceRuntime)
+    runtime._wake_dispatch_lock = threading.Lock()
+    runtime._dispatch = RecordingWakeDispatcher()
+    runtime._interrupt_control = SessionCommandControl(
+        {"command": "simulate_wake", "request_id": "startup-request", "wake_word": "你好小浦"}
+    )
+    runtime._last_session_command_request_id = "startup-request"
+
+    runtime._poll_session_command()
+
+    assert runtime._dispatch.words == []
+
+
+def test_voice_runtime_ignores_new_non_wake_session_command(monkeypatch) -> None:
+    SurfVoiceRuntime = _load_voice_runtime(monkeypatch)
+    runtime = object.__new__(SurfVoiceRuntime)
+    runtime._wake_dispatch_lock = threading.Lock()
+    runtime._dispatch = RecordingWakeDispatcher()
+    runtime._interrupt_control = SessionCommandControl(
+        {"command": "end_session", "request_id": "end-1"}
+    )
+    runtime._last_session_command_request_id = ""
+
+    runtime._poll_session_command()
+
+    assert runtime._dispatch.words == []
+    assert runtime._last_session_command_request_id == "end-1"
+
+
+def test_voice_runtime_serializes_real_and_manual_wake_for_dispatcher_dedup(monkeypatch) -> None:
+    SurfVoiceRuntime = _load_voice_runtime(monkeypatch)
+    runtime = object.__new__(SurfVoiceRuntime)
+    runtime._wake_dispatch_lock = threading.Lock()
+    runtime._interrupt_control = SessionCommandControl(
+        {"command": "simulate_wake", "request_id": "manual-race", "wake_word": "你好小浦"}
+    )
+    runtime._last_session_command_request_id = ""
+    barrier = threading.Barrier(2)
+    sessions = []
+
+    class RacingDedupDispatcher:
+        def __init__(self) -> None:
+            self.seen = set()
+
+        def on_detection(self, word: str) -> None:
+            should_fire = word not in self.seen
+            try:
+                barrier.wait(timeout=0.05)
+            except threading.BrokenBarrierError:
+                pass
+            if should_fire:
+                self.seen.add(word)
+                sessions.append(f"session-{len(sessions) + 1}")
+
+    runtime._dispatch = RacingDedupDispatcher()
+    real = threading.Thread(target=runtime._submit_wake_detection, args=("你好小浦",))
+    manual = threading.Thread(target=runtime._poll_session_command)
+
+    real.start()
+    manual.start()
+    real.join(timeout=1.0)
+    manual.join(timeout=1.0)
+
+    assert not real.is_alive()
+    assert not manual.is_alive()
+    assert sessions == ["session-1"]

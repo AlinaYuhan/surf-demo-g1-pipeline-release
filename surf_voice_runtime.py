@@ -21,6 +21,7 @@ from wake_word.chinese_wake_word_detector import ChineseWakeWordDetector
 from wake_word.wake_word_detector import WakeWordDetector
 from wake_word.wakeup_dispatcher import WakeupDispatcher
 
+from pipeline_control.interrupt import InterruptControl
 from pipeline_log.pipeline_logger import PipelineLogger, SessionLog
 from first_turn.mode_control import COMPATIBLE_MODE, FirstTurnModeStore
 from turn_detection.mode_control import RecordingEndpointController, TurnModeStore
@@ -82,6 +83,11 @@ class SurfVoiceRuntime:
         self._recording = False
         self._recording_lock = threading.Lock()
         runtime_dir = Path(os.environ.get("LLM_RUNTIME_DIR", "runtime"))
+        self._interrupt_control = InterruptControl(runtime_dir)
+        self._last_session_command_request_id = str(
+            self._interrupt_control.read_session_command().get("request_id", "")
+        )
+        self._wake_dispatch_lock = threading.Lock()
         self._turn_mode_store = TurnModeStore(runtime_dir / "turn_mode.json")
         self._first_turn_mode_store = FirstTurnModeStore(runtime_dir / "first_turn_mode.json")
         self._first_turn_compat_silence_sec = _env_float(
@@ -101,9 +107,9 @@ class SurfVoiceRuntime:
         self._dispatch = WakeupDispatcher()
         self._dispatch.register(self._on_wake)
         if CONFIG.wake_word_lang == "zh":
-            self._wakeword = ChineseWakeWordDetector(on_detected=self._dispatch.on_detection)
+            self._wakeword = ChineseWakeWordDetector(on_detected=self._submit_wake_detection)
         else:
-            self._wakeword = WakeWordDetector(on_detected=self._dispatch.on_detection)
+            self._wakeword = WakeWordDetector(on_detected=self._submit_wake_detection)
         self._asr = ASREngine(on_result=self._on_asr)
         self._vprint = VoiceprintRecognizer(on_embedding=self._on_embedding)
         self._speaker_db = SpeakerDatabase()
@@ -159,6 +165,7 @@ class SurfVoiceRuntime:
 
     def spin(self) -> None:
         while True:
+            self._poll_session_command()
             self._poll_followup_control()
             now = time.monotonic()
             if self._followup_session_id and self._followup_until and time.monotonic() > self._followup_until:
@@ -168,6 +175,19 @@ class SurfVoiceRuntime:
                 logger.info("asr max recording deadline reached; forcing transcription")
                 self._finalize_recording("max_recording_deadline")
             time.sleep(max(0.01, CONFIG.followup_control_poll_sec))
+
+    def _submit_wake_detection(self, word: str) -> None:
+        with self._wake_dispatch_lock:
+            self._dispatch.on_detection(word)
+
+    def _poll_session_command(self) -> None:
+        command = self._interrupt_control.read_session_command()
+        request_id = str(command.get("request_id", ""))
+        if not request_id or request_id == self._last_session_command_request_id:
+            return
+        self._last_session_command_request_id = request_id
+        if command.get("command") == "simulate_wake":
+            self._submit_wake_detection(str(command.get("wake_word", "你好小浦")))
 
     def _on_wake(self, word: str) -> None:
         self._close_followup_window("new_wake")

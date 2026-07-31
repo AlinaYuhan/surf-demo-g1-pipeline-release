@@ -58,3 +58,16 @@ def test_action_retry_and_delayed_release_keep_interrupt_generation():
     assert "self.release_arm(action_generation)" in NODE_SOURCE
     assert "self._execute_classified_action(classification, action_generation)" in NODE_SOURCE
     assert '"stale_before_action_release"' in NODE_SOURCE
+
+
+def test_llm_only_opens_wake_window_from_ros_wake_event():
+    session_command_poll = NODE_SOURCE.split("def _poll_session_command", 1)[1].split(
+        "def on_vad", 1
+    )[0]
+    on_wake = NODE_SOURCE.split("def on_wake", 1)[1].split(
+        "def _interrupt_active_reply_for_wake", 1
+    )[0]
+
+    assert 'command.get("command") == "simulate_wake"' not in session_command_poll
+    assert "self._open_wake_listen_window()" in on_wake
+    assert "self._maybe_play_wake_ack(wake_word)" in on_wake

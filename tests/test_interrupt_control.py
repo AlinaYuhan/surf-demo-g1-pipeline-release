@@ -132,3 +132,17 @@ def test_request_session_end_writes_generation_without_opening_listening(tmp_pat
     assert payload["session_id"] == "s001"
     assert payload["generation"] == command["generation"]
     assert not (tmp_path / "followup_control.json").exists()
+
+
+def test_simulate_wake_keeps_generation_and_uses_a_fresh_request_id(tmp_path):
+    control = InterruptControl(tmp_path)
+    interrupt = control.begin(session_id="active-session")
+
+    wake = control.request_simulate_wake(session_id="wake-session")
+
+    assert wake["generation"] == interrupt["generation"]
+    assert control.current_generation() == interrupt["generation"]
+    assert wake["request_id"] != interrupt["request_id"]
+    assert wake["command"] == "simulate_wake"
+    assert wake["wake_word"] == "你好小浦"
+    assert wake["session_id"] == "wake-session"

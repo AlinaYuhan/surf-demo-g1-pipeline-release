@@ -1033,9 +1033,8 @@ def run_pipeline_simulate_wake(
     latest_log = find_latest_pipeline_log(logs_dir)
     session_id = latest_log.parent.name if latest_log is not None else ""
     control = interrupt_control or InterruptControl(PROJECT_ROOT / "runtime")
-    command = control.begin(session_id=session_id)
     try:
-        command = control.request_simulate_wake(session_id=session_id, command=command)
+        command = control.request_simulate_wake(session_id=session_id)
     except Exception as exc:
         return {"ok": False, "partial": False, "error": str(exc)}
     return {

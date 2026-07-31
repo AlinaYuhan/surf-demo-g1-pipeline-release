@@ -182,21 +182,14 @@ class InterruptControl:
     def request_simulate_wake(
         self,
         session_id: str = "",
-        command: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Simulate wake word to re-activate listening."""
-        payload = command or self.begin(session_id=session_id)
+        """Request a wake event without interrupting the active generation."""
         with _COMMAND_LOCK:
-            generation = int(payload.get("generation", -1))
-            if generation != self.current_generation():
-                raise RuntimeError(
-                    f"stale interrupt generation={generation} current={self.current_generation()}"
-                )
             session_payload = {
                 "command": "simulate_wake",
-                "request_id": str(payload.get("request_id", uuid.uuid4().hex)),
-                "generation": generation,
-                "session_id": str(session_id or payload.get("session_id", "")),
+                "request_id": uuid.uuid4().hex,
+                "generation": self.current_generation(),
+                "session_id": str(session_id),
                 "wake_word": "你好小浦",
                 "updated_at": time.time(),
             }

@@ -28,6 +28,7 @@ from pipeline_monitor.server import (
     run_pipeline_command,
     run_pipeline_end_session,
     run_pipeline_interrupt,
+    run_pipeline_simulate_wake,
     turn_mode_status,
     update_first_turn_mode,
     update_turn_mode,
@@ -36,6 +37,34 @@ from http.server import ThreadingHTTPServer
 
 
 class PipelineMonitorTests(unittest.TestCase):
+    def test_run_pipeline_simulate_wake_calls_control_without_begin(self):
+        calls = []
+
+        class FakeControl:
+            def request_simulate_wake(self, session_id):
+                calls.append(session_id)
+                return {
+                    "request_id": "wake-1",
+                    "generation": 7,
+                    "session_id": session_id,
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            logs_dir = Path(tmp) / "logs"
+            log_path = logs_dir / "20260731_010203_s001" / "pipeline.log"
+            log_path.parent.mkdir(parents=True)
+            log_path.write_text('{"stage":"llm_reply"}\n', encoding="utf-8")
+
+            result = run_pipeline_simulate_wake(
+                logs_dir=logs_dir,
+                pipeline_running_checker=lambda: True,
+                interrupt_control=FakeControl(),
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(calls, ["20260731_010203_s001"])
+        self.assertEqual(result["generation"], 7)
+
     def test_first_turn_mode_store_allows_switch_only_when_pipeline_is_stopped(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime_dir = Path(tmp)
