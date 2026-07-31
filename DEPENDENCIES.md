@@ -1,53 +1,60 @@
 # Dependency Manifest
 
-See [ENVIRONMENT.md](ENVIRONMENT.md) for installation commands. This file
-summarizes what is tracked in Git and what must be restored locally.
+Use [Setup](docs/SETUP.md) for installation and
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for license/status details.
 
-## Tracked Source Dependencies
+## Repository roles
 
-```text
-deps/SURF2026_VoiceModule-main/             SURF wake/VAD/ASR/speaker module
-deps/qwen_ros_node_edg_tts/                 Unitree SDK Python subtree and legacy LLM node files
-deps/unitree_g1_action_classifier_package/  Unitree action support source and SDK files
-xjtlu-rag-system/                           RAG service, knowledge DB, and vector index DB
-```
+| Path | Classification | Current role |
+| --- | --- | --- |
+| `deps/SURF2026_VoiceModule-main/` | Core runtime source | Wake word, VAD, ASR, speaker context, microphone input. |
+| `deps/qwen_ros_node_edg_tts/` | Compatibility + vendored third party | Legacy-named package that still supplies the Unitree Python SDK adapter; older Qwen code is not the default reply path. |
+| `deps/unitree_g1_action_classifier_package/` | Adapter + vendored third party | G1 action classification/runner and Unitree SDK2 C++ source. |
+| `xjtlu-rag-system/` | Optional | XJTLU retrieval service and approved small DBs; disabled by default. |
+| `research/` | Research/experimental | Not required by the default conversation path; publication permission varies by asset. |
+| `docs/archive/` | Historical | Earlier notes, not current runtime truth. |
 
-## DDS Dependencies
+## Python environments
 
-```text
-Python Unitree SDK:
-  deps/qwen_ros_node_edg_tts/third_party/unitree_sdk2_python
-  requires cyclonedds==0.10.2
+- `requirements-llm.txt`: main orchestration, HTTP, TTS, ML/action, and Unitree
+  Python adapter dependencies for the `llm` Python 3.12 environment.
+- `requirements-voice.txt`: audio, ASR, wake word, VAD, and voiceprint
+  dependencies for the `voice312` Python 3.12 environment.
 
-C++ Unitree SDK:
-  deps/unitree_g1_action_classifier_package/unitree_sdk2
-  links bundled ddsc and ddscxx libraries
-```
-
-The action runner build output is intentionally not tracked. Rebuild it locally
-so the executable can resolve the Unitree/CycloneDDS shared libraries for the
-current machine architecture.
-
-## Intentionally Not Tracked
+Default external interpreter paths:
 
 ```text
-Conda environments:
-  $HOME/miniconda3/envs/voice312/bin/python
-  $HOME/miniconda3/envs/llm/bin/python
-
-Large runtime assets:
-  deps/ollama/
-  deps/ollama-home/
-  deps/Qwen3.5-0.8B/
-  deps/unitree_g1_action_classifier_package/unitree_sdk2/build/
-  deps/SURF2026_VoiceModule-main/models/kws/*.onnx
-
-Generated runtime files:
-  __pycache__, .pytest_cache, runtime logs, temporary TTS files
-
-Secrets:
-  config/local.env
+${HOME}/miniconda3/envs/llm/bin/python
+${HOME}/miniconda3/envs/voice312/bin/python
 ```
 
-`config/default.env` contains safe defaults. Put local paths and secrets in
-`config/local.env`.
+ROS 2 Python packages are provided by ROS 2 Jazzy, not by these pip files.
+Install machine-specific PyTorch CPU/CUDA wheels as needed.
+
+## Native DDS/Unitree dependencies
+
+```text
+deps/qwen_ros_node_edg_tts/third_party/unitree_sdk2_python/
+    Unitree Python adapter; declares cyclonedds==0.10.2
+
+deps/unitree_g1_action_classifier_package/unitree_sdk2/
+    Unitree SDK2 C++; bundles its own nested third-party license tree
+```
+
+Generated CMake output and Jetson native libraries are not tracked. Build or
+install them for the target architecture.
+
+## External/download-on-install assets
+
+| Asset | Required when |
+| --- | --- |
+| sherpa-onnx KWS ONNX files | Voice wake-up is used. |
+| ModelScope Paraformer ASR | Voice ASR is used. |
+| Hugging Face WeSpeaker cache | Speaker recognition is enabled. |
+| Ollama + `nomic-embed-text` | `LLM_REPLY_BACKEND=rag` only. |
+| Local Qwen model | `LLM_REPLY_BACKEND=local` only. |
+
+The default `deepseek` reply backend does not require Ollama or local Qwen.
+Downloaded assets, environments, build output, runtime state, and
+`config/local.env` are intentionally excluded from Git and public release
+bundles.
