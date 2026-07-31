@@ -18,7 +18,7 @@ The SDK also ships its own nested third-party license tree. Keep these files wit
 | `deps/unitree_g1_action_classifier_package/unitree_sdk2/licenses/eclipse-cyclonedds/cyclonedds-cxx/LICENSE` | EPL-2.0 or EDL-1.0 | [Eclipse Cyclone DDS C++](https://github.com/eclipse-cyclonedds/cyclonedds-cxx) |
 | `deps/unitree_g1_action_classifier_package/unitree_sdk2/licenses/eclipse-iceoryx/iceoryx/LICENSE` | Apache-2.0 | [Eclipse iceoryx](https://github.com/eclipse-iceoryx/iceoryx) |
 | `deps/unitree_g1_action_classifier_package/unitree_sdk2/licenses/Tencent/rapidjson/LICENSE` | MIT, with the exceptions described in that file | [Tencent RapidJSON](https://github.com/Tencent/rapidjson) |
-| `deps/unitree_g1_action_classifier_package/unitree_sdk2/thirdparty/include/ddscxx/dds/LICENSE` | Nested license supplied with the vendored DDS headers | [Eclipse Cyclone DDS C++](https://github.com/eclipse-cyclonedds/cyclonedds-cxx) |
+| `deps/unitree_g1_action_classifier_package/unitree_sdk2/thirdparty/include/ddscxx/dds/LICENSE` | Apache-2.0 | [Eclipse Cyclone DDS C++](https://github.com/eclipse-cyclonedds/cyclonedds-cxx) |
 
 ### Unitree SDK2 Python
 
@@ -26,9 +26,11 @@ The SDK also ships its own nested third-party license tree. Keep these files wit
 - **License/status:** its vendored `setup.py` declares BSD-3-Clause and version `1.0.1`, consistent with the [official Unitree SDK2 Python repository](https://github.com/unitreerobotics/unitree_sdk2_python). However, this copy has no local `LICENSE` and does not record the exact vendored revision.
 - **Release action:** unresolved. Before public redistribution, restore the matching upstream BSD-3-Clause license text beside the vendored source and record its revision. Do not treat the metadata declaration alone as a shipped license notice.
 
-## Download-only runtime software, models, and services
+## Runtime software, models, and services
 
-These items are not intended to be bundled in a public source or release archive. Prefer official, pinned downloads during installation and record the downloaded revision or digest and checksum. If any model is later redistributed, review and satisfy the terms for the exact bytes being shipped.
+These items should be obtained from official, pinned sources during installation rather than bundled in a public source or release archive. Record the downloaded revision or digest and checksum. If any model is later redistributed, review and satisfy the terms for the exact bytes being shipped.
+
+**Existing bundle path is blocked:** `scripts/build_release_bundle.sh` currently copies the local Qwen and Paraformer models, optionally copies the WeSpeaker cache, and copies the whole `deps/SURF2026_VoiceModule-main/` tree, including tracked KWS token and keyword files. That behavior is incompatible with the download-on-install and unresolved-license treatments below. Do not publish an archive from this script until the planned bundler fix excludes those artifacts, or each exact artifact has been separately cleared and packaged with its required license, notice, attribution, revision, and checksum.
 
 | Component and repository location/reference | Published terms and official source | Current release treatment |
 | --- | --- | --- |
