@@ -114,6 +114,7 @@ class DefaultEnvShellTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         reproducibility = (ROOT / "REPRODUCIBILITY.md").read_text(encoding="utf-8")
         environment = (ROOT / "ENVIRONMENT.md").read_text(encoding="utf-8")
+        dependencies = (ROOT / "DEPENDENCIES.md").read_text(encoding="utf-8")
 
         for guide in (readme, reproducibility):
             self.assertIn("LLM_REPLY_BACKEND=deepseek", guide)
@@ -121,6 +122,7 @@ class DefaultEnvShellTests(unittest.TestCase):
             self.assertRegex(guide, r"(?is)optional.{0,120}(?:RAG|Ollama)")
         self.assertIn("conda create -n voice312 python=3.12 -y", environment)
         self.assertIn("/envs/voice312/bin/python", environment)
+        self.assertIn("/envs/voice312/bin/python", dependencies)
 
     def test_rag_preflight_dependencies_are_guarded_by_backend(self):
         script = (ROOT / "scripts" / "check_pipeline.sh").read_text(encoding="utf-8")

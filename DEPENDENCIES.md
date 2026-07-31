@@ -32,7 +32,7 @@ current machine architecture.
 
 ```text
 Conda environments:
-  $HOME/miniconda3/envs/voice/bin/python
+  $HOME/miniconda3/envs/voice312/bin/python
   $HOME/miniconda3/envs/llm/bin/python
 
 Large runtime assets:
