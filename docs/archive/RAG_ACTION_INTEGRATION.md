@@ -1,5 +1,10 @@
 # XJTLU RAG + Action Pipeline
 
+> **Historical document:** This integration guide is stale and must not be used
+> for current setup or runtime behavior. See the [root README](../../README.md),
+> [current architecture](../project_architecture.md), and
+> [voice-to-robot call chain](../voice_to_robot_call_chain.md) instead.
+
 This workspace can run the XJTLU RAG backend while keeping the existing SURF
 voice, TTS, action classifier, and Unitree action execution pipeline.
 

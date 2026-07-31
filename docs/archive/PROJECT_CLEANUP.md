@@ -1,5 +1,10 @@
 # Project Cleanup Notes
 
+> **Historical document:** These cleanup notes are stale and must not be used
+> for current setup or repository policy. See the [root README](../../README.md),
+> [packaging guide](../../PACKAGING.md), and
+> [dependency manifest](../../DEPENDENCIES.md) instead.
+
 This workspace has three categories of files.
 
 ## Source Files

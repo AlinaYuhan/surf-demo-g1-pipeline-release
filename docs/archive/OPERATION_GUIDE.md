@@ -1,5 +1,9 @@
 # SURF -> LLM 全流程操作指南
 
+> **历史文档：** 本操作指南已经过时，不应作为当前环境配置或运行行为的依据。
+> 请改用[根目录 README](../../README.md)、[环境配置指南](../../ENVIRONMENT.md)和
+> [复现指南](../../REPRODUCIBILITY.md)。
+
 本文档用于在当前工作区跑通 SURF 语音、LLM、XJTLU RAG、TTS 播放和 Unitree 动作执行的集成流程。
 
 ## 1. 进入项目目录

@@ -1,5 +1,10 @@
 # 2026-05-21 Update Log
 
+> **Historical document:** This dated changelog is stale and must not be used
+> for current setup or runtime behavior. See the [root README](../../README.md),
+> [environment guide](../../ENVIRONMENT.md), and
+> [current architecture](../project_architecture.md) instead.
+
 This document archives the SURF -> LLM -> Unitree G1 pipeline changes made on
 2026-05-21.
 
