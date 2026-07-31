@@ -340,6 +340,15 @@ def test_first_party_cpp_robot_tools_have_no_machine_interface_default(source_na
     assert source.index("if (iface.empty())") < source.index("ChannelFactory::Instance()->Init")
 
 
+def test_optional_rag_ros_bridge_requires_explicit_dds_peer_without_machine_ip():
+    launcher = (ROOT / "xjtlu-rag-system" / "start_ros_bridge.ps1").read_text(encoding="utf-8")
+    assert "192.168.123.225" not in launcher
+    assert "CYCLONEDDS_PEER" in launcher
+    assert "CYCLONEDDS_URI" in launcher
+    assert 'RosDomainId = "0"' in launcher
+    assert launcher.index("throw") < launcher.index("python .\\ros_bridge.py")
+
+
 def test_local_voice_mode_does_not_require_robot_destination(monkeypatch):
     voice_root = ROOT / "deps/SURF2026_VoiceModule-main"
     sys.path.insert(0, str(voice_root))
