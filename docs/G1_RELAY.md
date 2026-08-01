@@ -101,10 +101,10 @@ readiness.
 
 The current beamforming deployment script references
 `research/beamforming/teacher_reference_20260630/DCF_Targ7_runtime.npz`.
-Redistribution permission for that teacher-provided filter is unresolved, so it
-is a release blocker. Do not publish or deploy that asset to a new recipient
-until permission is documented. A local operator may select a non-beamforming
-processing mode where supported, or provide an independently licensed filter.
+The provider confirmed permission to publish the teacher-provided filter and
+its companion reference assets on 2026-08-01, so the deployment path is retained
+unchanged. Operators may still select `mean4` when fixed beamforming is not
+appropriate for their microphone geometry.
 
 ## Monitor operation
 

@@ -31,6 +31,7 @@ def _tracked_fixture(tmp_path: Path) -> Path:
         "xjtlu-rag-system/chat_memory.db": "conversation memory\n",
         "models/local-model.onnx": "downloaded model\n",
         "deps/SURF2026_VoiceModule-main/models/kws/tokens.txt": "model token table\n",
+        "research/beamforming/teacher_reference_20260630/mixture.wav": "approved reference audio\n",
         "docs/archive/README.md": "curated historical documentation\n",
         "docs/plans/internal-plan.md": "private development plan\n",
         "docs/work_reports/internal-report.md": "private work report\n",
@@ -79,6 +80,9 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
     assert (bundle / "source/xjtlu-rag-system/xjtlu_knowledge.db").is_file()
     assert (bundle / "source/config/local.env.example").is_file()
     assert (bundle / "source/docs/archive/README.md").is_file()
+    assert (
+        bundle / "source/research/beamforming/teacher_reference_20260630/mixture.wav"
+    ).is_file()
 
     forbidden = (
         "source/config/local.env",
@@ -118,15 +122,15 @@ def test_default_bundle_contains_only_auditable_public_source(tmp_path):
 
     bundle_readme = (bundle / "README.md").read_text(encoding="utf-8")
     assert "research/beamforming/teacher_reference_20260630/" in bundle_readme
-    assert "redistribution permission" in bundle_readme.lower()
+    assert "permission to publish" in bundle_readme.lower()
 
 
-def test_packaging_notes_flag_teacher_reference_redistribution_decision():
+def test_packaging_notes_record_teacher_reference_permission():
     packaging = (ROOT / "PACKAGING.md").read_text(encoding="utf-8")
 
     assert "research/beamforming/teacher_reference_20260630/" in packaging
-    assert "redistribution permission" in packaging.lower()
-    assert "exclude" in packaging
+    assert "permission to publish" in packaging.lower()
+    assert "2026-08-01" in packaging
 
 
 def test_builder_refuses_to_replace_an_existing_target(tmp_path):

@@ -50,14 +50,14 @@ even if one of those files was accidentally added to Git. Exclusions include:
 Third-party SDKs and native components must therefore be installed or built
 locally on the target machine from their documented upstream sources.
 
-### Pending teacher-reference permission
+### Teacher reference assets
 
 The tracked directory `research/beamforming/teacher_reference_20260630/`
-contains teacher-provided MATLAB scripts and filter data (`.m`, `.mat` and
-`.npz`). The builder currently leaves these tracked source assets in the bundle
-because their disposition has not been decided. **Do not publish the artifact**
-until redistribution permission is documented; if permission is not granted,
-exclude the directory from the public bundle before release.
+contains teacher-provided MATLAB scripts, filter data, and reference audio.
+Permission to publish these assets in the repository was confirmed by their
+provider on 2026-08-01. The builder intentionally retains the complete directory
+so users can reproduce the current fixed-beamforming path. Other local recordings
+and generated audio remain excluded.
 
 ## Install on the target machine
 

@@ -115,7 +115,13 @@ is_public_bundle_path() {
       return 1
       ;;
     *.log|*.wav|*.mp3)
-      return 1
+      case "${path}" in
+        research/beamforming/teacher_reference_20260630/mixture.wav|research/beamforming/teacher_reference_20260630/out0.wav)
+          ;;
+        *)
+          return 1
+          ;;
+      esac
       ;;
     *.db|*.sqlite|*.sqlite3)
       case "${path}" in
@@ -172,13 +178,12 @@ install dependencies and models on the target machine.
 The optional XJTLU RAG source and its approved knowledge databases may be
 present, but RAG is not the default reply backend.
 
-## Redistribution warning
+## Teacher reference assets
 
-Git-tracked MATLAB scripts and filter data under
-`source/research/beamforming/teacher_reference_20260630/` may be present in this
-snapshot. Redistribution permission for these teacher-provided assets is still
-unconfirmed. Do not publish this bundle until permission is documented or that
-directory is explicitly excluded from the public artifact.
+The provider confirmed permission to publish the MATLAB scripts, filter data,
+and reference audio under
+`source/research/beamforming/teacher_reference_20260630/` on 2026-08-01. They
+are intentionally retained so the fixed-beamforming path remains reproducible.
 EOF
 
 if [[ "${MAKE_TAR}" == "1" ]]; then

@@ -52,9 +52,11 @@ notice, attribution, revision, and checksum.
 | Qwen model expected at `deps/Qwen3.5-0.8B/model/` | The [official `Qwen/Qwen3.5-0.8B` model page](https://huggingface.co/Qwen/Qwen3.5-0.8B) states Apache-2.0, but the local path does not establish that its bytes came from that model or identify a revision. | **Do not bundle the local directory.** Prefer a pinned official download; origin and hash are unresolved for any existing local copy. |
 | sherpa-onnx KWS files expected under `deps/SURF2026_VoiceModule-main/models/kws/` | [Official pretrained KWS documentation](https://k2-fsa.github.io/sherpa/onnx/kws/pretrained_models/index.html) identifies the expected `sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01` archive. [sherpa-onnx software](https://github.com/k2-fsa/sherpa-onnx) is Apache-2.0, but that does not establish a license for separately trained weights or the token table. | **License unresolved; no bundling.** The ONNX weights and `tokens.txt` are excluded from the public tree/bundle; users must obtain the matching files from the official model archive. |
 
-## Unresolved material and project licensing boundaries
+## Permission-confirmed material and project licensing boundaries
 
-The teacher-provided assets below have no accompanying public-redistribution permission or license evidence and are a **public-release blocker** unless the owner grants permission; otherwise they must be excluded from the public tree and history:
+The provider confirmed permission on 2026-08-01 to publish the following
+fixed-beamforming reference assets in this repository. They remain together so
+the current beamforming implementation and reference verification are usable:
 
 - `research/beamforming/teacher_reference_20260630/Fixed_Mini_Beamformer.m`
 - `research/beamforming/teacher_reference_20260630/test.m`

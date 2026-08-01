@@ -63,8 +63,9 @@ each reproducibility claim.
 ## Publication blockers
 
 - The project still needs a selected root `LICENSE`.
-- Redistribution permission for
-  `research/beamforming/teacher_reference_20260630/` is unresolved.
+- Permission to publish the teacher-provided fixed-beamforming reference assets
+  in `research/beamforming/teacher_reference_20260630/` was confirmed on
+  2026-08-01; keep the directory intact when reproducing that mode.
 - The vendored Unitree Python SDK now includes its matching BSD-3-Clause notice,
   but its exact upstream base revision has not been recovered; treat it as a
   modified vendored copy as described in

@@ -165,9 +165,10 @@ before publishing any artifact.
 
 - A root project `LICENSE` has not yet been selected. Choose and add one before
   announcing a public release.
-- Redistribution permission for
-  `research/beamforming/teacher_reference_20260630/` is still unresolved. Do
-  not publish those teacher-provided assets without documented permission.
+- Permission to publish the teacher-provided fixed-beamforming scripts, filter
+  data, and reference audio under
+  `research/beamforming/teacher_reference_20260630/` was confirmed on
+  2026-08-01; the files remain included for reproducibility.
 - Third-party components and model/service notes are listed in
   [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 - Hardware validation remains machine-specific; a passing local test suite does
