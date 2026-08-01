@@ -163,8 +163,10 @@ before publishing any artifact.
 
 ## Publication status and license
 
-- A root project `LICENSE` has not yet been selected. Choose and add one before
-  announcing a public release.
+- First-party project code is released under the
+  [Apache License 2.0](LICENSE). Bundled third-party and permission-confirmed
+  reference material retain the terms described in
+  [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 - Permission to publish the teacher-provided fixed-beamforming scripts, filter
   data, and reference audio under
   `research/beamforming/teacher_reference_20260630/` was confirmed on

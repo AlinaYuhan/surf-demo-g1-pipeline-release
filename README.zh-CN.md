@@ -149,7 +149,8 @@ pytest -q
 
 ## 公开状态与许可
 
-- 根目录项目 `LICENSE` 尚未选定，对外宣布发布前必须确定并添加。
+- 项目自有代码采用 [Apache License 2.0](LICENSE)；第三方组件和已获准公开的
+  参考资料仍遵循 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) 中的说明。
 - `research/beamforming/teacher_reference_20260630/` 中的教师波束形成代码、
   滤波器和参考录音已于 2026-08-01 确认允许在本仓库公开，为保证功能可复现而完整保留。
 - 第三方组件、模型和服务说明见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。

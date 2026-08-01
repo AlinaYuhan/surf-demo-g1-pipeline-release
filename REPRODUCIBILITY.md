@@ -60,9 +60,10 @@ Jetson libraries, relay reachability, speaker, lights, or action safety. Record
 the local environment, model revisions/checksums, and hardware test result for
 each reproducibility claim.
 
-## Publication blockers
+## Publication notes
 
-- The project still needs a selected root `LICENSE`.
+- First-party project code is licensed under Apache-2.0; bundled third-party
+  material retains its own terms.
 - Permission to publish the teacher-provided fixed-beamforming reference assets
   in `research/beamforming/teacher_reference_20260630/` was confirmed on
   2026-08-01; keep the directory intact when reproducing that mode.
@@ -71,7 +72,7 @@ each reproducibility claim.
   modified vendored copy as described in
   [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-Do not publish an artifact until these release checks are resolved or the
-affected files are excluded. Use the source-only builder described in
+Resolve or document any remaining provenance notes before a formal release.
+Use the source-only builder described in
 [PACKAGING.md](PACKAGING.md); it deliberately excludes local models, secrets,
 runtime state, and compiled output.

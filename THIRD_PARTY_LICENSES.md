@@ -1,6 +1,6 @@
 # Third-Party Licenses and Release Notes
 
-This document is an engineering inventory, not legal advice or a guarantee that every use or distribution is permitted. It distinguishes material shipped in this source tree from software, models, and services obtained separately at runtime. It does not select or create a license for this project.
+This document is an engineering inventory, not legal advice or a guarantee that every use or distribution is permitted. It distinguishes material shipped in this source tree from software, models, and services obtained separately at runtime. First-party project code uses the root Apache-2.0 license; the separate terms and permission notes below are not replaced by that license.
 
 ## Bundled vendored material
 

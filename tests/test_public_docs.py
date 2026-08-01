@@ -97,7 +97,8 @@ def test_public_docs_mark_optional_and_blocked_material() -> None:
     )
     assert "teacher_reference_20260630" in readmes
     assert "confirmed on" in readmes
-    assert "root project `LICENSE` has not yet been selected" in readmes
+    assert (ROOT / "LICENSE").is_file()
+    assert "Apache License 2.0" in readmes
 
 
 def test_third_party_notice_matches_safe_bundle_and_ships_unitree_python_license() -> None:
