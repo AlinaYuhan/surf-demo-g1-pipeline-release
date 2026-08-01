@@ -37,8 +37,8 @@ XJTLU RAG 源码和已确认可公开的小型数据库仍保留在仓库中，�
 可达的 Jetson 中继服务以及 G1 机器人网络。
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+git clone https://github.com/AlinaYuhan/g1-voice-interaction-pipeline.git
+cd g1-voice-interaction-pipeline
 ./scripts/setup_conda_envs.sh
 cp config/local.env.example config/local.env
 ```

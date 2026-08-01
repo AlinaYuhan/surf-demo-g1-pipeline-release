@@ -40,8 +40,8 @@ The full robot path is designed for Ubuntu or WSL2 with ROS 2 Jazzy, two Python
 3.12 environments, a reachable Jetson relay, and access to the G1 network.
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
+git clone https://github.com/AlinaYuhan/g1-voice-interaction-pipeline.git
+cd g1-voice-interaction-pipeline
 ./scripts/setup_conda_envs.sh
 cp config/local.env.example config/local.env
 ```
