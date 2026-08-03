@@ -88,6 +88,18 @@ class DefaultEnvShellTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "deepseek relay")
 
+    def test_tts_output_defaults_to_full_robot_volume_and_triple_pcm_gain(self):
+        default_env = (ROOT / "config" / "default.env").read_text(encoding="utf-8")
+        config_source = (ROOT / "project_config.py").read_text(encoding="utf-8")
+        node_source = (ROOT / "llm_surf_context_node.py").read_text(encoding="utf-8")
+        relay_source = (ROOT / "robot_relay" / "jetson_robot_relay.py").read_text(encoding="utf-8")
+
+        self.assertIn('UNITREE_AUDIO_VOLUME="${UNITREE_AUDIO_VOLUME:-100}"', default_env)
+        self.assertIn('LLM_TTS_AUDIO_GAIN="${LLM_TTS_AUDIO_GAIN:-3.0}"', default_env)
+        self.assertIn('_env_int("UNITREE_AUDIO_VOLUME", 100)', config_source)
+        self.assertIn('f"volume={CONFIG.tts_audio_gain}"', node_source)
+        self.assertIn('self.audio.SetVolume(VOLUME)', relay_source)
+
     def test_monitor_fallback_matches_relay_runtime_default(self):
         from pipeline_monitor.server import PIPELINE_ENV_DEFAULTS
 

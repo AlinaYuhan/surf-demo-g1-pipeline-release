@@ -19,6 +19,7 @@ NETWORK_INTERFACE = os.environ.get("UNITREE_NETWORK_INTERFACE", "").strip()
 DOMAIN = int(os.environ.get("UNITREE_DOMAIN_ID", "0"))
 VOICE_PEER = os.environ.get("UNITREE_VOICE_PEER", "").strip()
 TIMEOUT = float(os.environ.get("UNITREE_AUDIO_TIMEOUT", "10.0"))
+VOLUME = int(os.environ.get("UNITREE_AUDIO_VOLUME", "100"))
 
 if not NETWORK_INTERFACE:
     raise SystemExit("UNITREE_NETWORK_INTERFACE is required; set the Jetson robot-network interface")
@@ -51,8 +52,12 @@ class JetsonRobotRelay:
         self.audio = AudioClient()
         self.audio.SetTimeout(TIMEOUT)
         self.audio.Init()
+        set_volume_code = self.audio.SetVolume(VOLUME)
         code, volume = self.audio.GetVolume()
-        print(f"[relay] AudioClient ready code={code} vol={volume}", flush=True)
+        print(
+            f"[relay] AudioClient ready set_volume_code={set_volume_code} code={code} vol={volume}",
+            flush=True,
+        )
         self.arm_action = G1ArmActionClient()
         self.arm_action.SetTimeout(TIMEOUT)
         self.arm_action.Init()

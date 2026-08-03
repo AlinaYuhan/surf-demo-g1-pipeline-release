@@ -100,3 +100,22 @@ def test_wake_ack_cache_rejects_truncated_file(tmp_path):
     cached.write_bytes(b"not-a-wave")
 
     assert not context_module.LlmSurfContextNode._wake_ack_cache_valid(cached)
+
+
+def test_wake_ack_cache_is_rebuilt_when_audio_gain_changes(tmp_path):
+    node = context_module.LlmSurfContextNode
+
+    with patch.object(
+        context_module,
+        "CONFIG",
+        SimpleNamespace(runtime_dir=tmp_path, tts_audio_gain=1.0),
+    ):
+        quiet_path = node._wake_ack_cache_path(node, "我在")
+    with patch.object(
+        context_module,
+        "CONFIG",
+        SimpleNamespace(runtime_dir=tmp_path, tts_audio_gain=3.0),
+    ):
+        loud_path = node._wake_ack_cache_path(node, "我在")
+
+    assert loud_path != quiet_path

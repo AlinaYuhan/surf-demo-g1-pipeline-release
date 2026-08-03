@@ -84,6 +84,8 @@ def config_for(tmp_path: Path):
         thinking_ack_text="legacy",
         thinking_ack_texts_zh=("让我查一下。", "我来看看。", "让我想一想。"),
         thinking_ack_texts_en=("Let me check.", "Let me think.", "One moment."),
+        thinking_ack_cache_version="v2",
+        tts_audio_gain=3.0,
     )
 
 
@@ -165,3 +167,17 @@ def test_thinking_ack_prewarm_only_builds_missing_entries(tmp_path):
 
     expected_missing = len(config.thinking_ack_texts_zh + config.thinking_ack_texts_en) - 1
     assert build.call_count == expected_missing
+
+
+def test_thinking_ack_cache_is_rebuilt_when_audio_gain_changes(tmp_path):
+    node = FakeNode()
+    config = config_for(tmp_path)
+
+    config.tts_audio_gain = 1.0
+    with patch.object(context_module, "CONFIG", config):
+        quiet_path = node._thinking_ack_cache_path("让我想一想。")
+    config.tts_audio_gain = 3.0
+    with patch.object(context_module, "CONFIG", config):
+        loud_path = node._thinking_ack_cache_path("让我想一想。")
+
+    assert loud_path != quiet_path

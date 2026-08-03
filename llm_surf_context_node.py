@@ -1824,7 +1824,10 @@ class LlmSurfContextNode(Node):
         return selected
 
     def _thinking_ack_cache_path(self, ack_text: str):
-        digest_input = f"{getattr(CONFIG, 'thinking_ack_cache_version', 'v1')}:{ack_text}"
+        digest_input = (
+            f"{getattr(CONFIG, 'thinking_ack_cache_version', 'v1')}:"
+            f"gain={CONFIG.tts_audio_gain}:{ack_text}"
+        )
         digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:16]
         cache_dir = CONFIG.runtime_dir / "tts_cache"
         return cache_dir / f"thinking_ack_{digest}.wav"
@@ -1949,7 +1952,8 @@ class LlmSurfContextNode(Node):
         self._session_record("wake_ack_ready", text=ack_text, session_id=self._session_id)
 
     def _wake_ack_cache_path(self, ack_text: str):
-        digest = hashlib.sha256(ack_text.encode("utf-8")).hexdigest()[:16]
+        digest_input = f"gain={CONFIG.tts_audio_gain}:{ack_text}"
+        digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:16]
         cache_dir = CONFIG.runtime_dir / "tts_cache"
         return cache_dir / f"wake_ack_{digest}.wav"
 
@@ -2188,6 +2192,8 @@ class LlmSurfContextNode(Node):
                     "16000",
                     "-ac",
                     "1",
+                    "-filter:a",
+                    f"volume={CONFIG.tts_audio_gain}",
                     str(target_path),
                 ],
                 check=True,
